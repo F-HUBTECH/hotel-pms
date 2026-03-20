@@ -1,0 +1,113 @@
+{
+    "version": "1.0",
+    "source_system": "KFO Legacy Delphi",
+    "target_system": "NextJS PMS",
+    "table_mappings": {
+        "GUEST_PROFILE": {
+            "target_table": "profiles",
+            "fields": {
+                "GUEST_ID": "legacy_guest_id",
+                "FIRST_NAME": "first_name",
+                "LAST_NAME": "last_name",
+                "EMAIL": "email",
+                "PHONE": "phone",
+                "PASSPORT_NO": "passport_number",
+                "ADDRESS": "address",
+                "NATIONALITY_CODE": {
+                    "type": "lookup",
+                    "target_field": "nationality_id",
+                    "lookup_table": "nationalities",
+                    "lookup_key": "country_code"
+                }
+            }
+        },
+        "RESERVATIONS": {
+            "target_table": "reservations",
+            "fields": {
+                "RES_NO": "reservation_number",
+                "GUEST_ID": {
+                    "type": "lookup_legacy",
+                    "target_field": "guest_id",
+                    "lookup_map": "GUEST_PROFILE"
+                },
+                "ROOM_NO": {
+                    "type": "lookup",
+                    "target_field": "room_id",
+                    "lookup_table": "rooms",
+                    "lookup_key": "room_number"
+                },
+                "CHECK_IN": "check_in_date",
+                "CHECK_OUT": "check_out_date",
+                "ADULTS": "adults",
+                "CHILDREN": "children",
+                "ROOM_RATE": "rate",
+                "STATUS_CODE": {
+                    "type": "transform",
+                    "target_field": "status",
+                    "transform_map": {
+                        "R": "reserved",
+                        "I": "checked_in",
+                        "O": "checked_out",
+                        "C": "cancelled",
+                        "N": "no_show"
+                    }
+                }
+            }
+        },
+        "FOLIO_MASTER": {
+            "target_table": "folios",
+            "fields": {
+                "FOLIO_NO": "folio_number",
+                "RES_NO": {
+                    "type": "lookup_legacy",
+                    "target_field": "reservation_id",
+                    "lookup_map": "RESERVATIONS"
+                },
+                "TOTAL_AMT": "total_amount",
+                "TAX_AMT": "tax_amount",
+                "SVC_AMT": "service_charge",
+                "BALANCE": "balance",
+                "STAT": {
+                    "type": "transform",
+                    "target_field": "status",
+                    "transform_map": {
+                        "O": "open",
+                        "C": "closed",
+                        "V": "void"
+                    }
+                },
+                "CLOSE_DATE": "closed_at"
+            }
+        },
+        "FOLIO_TRANS": {
+            "target_table": "folio_transactions",
+            "fields": {
+                "TRANS_ID": "legacy_trans_id",
+                "FOLIO_NO": {
+                    "type": "lookup_legacy",
+                    "target_field": "folio_id",
+                    "lookup_map": "FOLIO_MASTER"
+                },
+                "TRANS_CODE": {
+                    "type": "transform",
+                    "target_field": "transaction_type",
+                    "transform_map": {
+                        "RM": "room_charge",
+                        "SV": "service",
+                        "TX": "tax",
+                        "PM": "payment",
+                        "RF": "refund"
+                    }
+                },
+                "DESC": "description",
+                "DEBIT_AMT": "debit",
+                "CREDIT_AMT": "credit",
+                "REF_NO": "reference_no",
+                "POST_DATE": "posted_at"
+            }
+        }
+    },
+    "default_values": {
+        "property_id": "MAIN_PROPERTY_UUID"
+    }
+}
