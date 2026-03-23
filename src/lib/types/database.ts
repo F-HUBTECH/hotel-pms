@@ -307,9 +307,18 @@ export interface Reservation {
   market_id: string | null;
   notes: string;
   share_with?: string | null;
+  room_qty?: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Agent/Company
+  agent_id?: string | null;
+  company_id?: string | null;
+  vip_level?: string | null;
+  arrival_flight?: string | null;
+  arrival_time?: string | null;
+  departure_flight?: string | null;
+  departure_time?: string | null;
   // Joined
   guest?: Guest;
   room?: Room;
@@ -317,6 +326,8 @@ export interface Reservation {
   source?: BookingSource;
   market?: Market;
   creator?: Profile;
+  agent?: { id: string; name: string; company_type?: string } | null;
+  company?: { id: string; name: string; company_type?: string } | null;
 }
 export type ReservationInsert = Omit<
   Reservation,

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getReservation, checkIn, checkOut, cancelReservation } from '@/lib/actions/reservations'
+import { getReservation, checkIn, checkOut, cancelReservation, splitRooms, splitRoomsAuto } from '@/lib/actions/reservations'
+import { checkAvailability } from '@/lib/actions/reservations'
 import { getFolio, postFolioTransaction, voidTransaction } from '@/lib/actions/folios'
 import { getReservationPaymentsAction, processPaymentAction } from '@/lib/actions/payments'
-import type { Reservation, Folio, FolioTransaction, ReservationStatus } from '@/lib/types/database'
+import type { Reservation, Folio, FolioTransaction, ReservationStatus, Room } from '@/lib/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,6 +48,12 @@ export default function ReservationDetailPage() {
     const [paymentLoading, setPaymentLoading] = useState(false)
     const [paymentForm, setPaymentForm] = useState({ amount: 0, payment_method: 'credit_card', reference_number: '', notes: '' })
 
+    // Split Rooms
+    const [splitOpen, setSplitOpen] = useState(false)
+    const [splitLoading, setSplitLoading] = useState(false)
+    const [availableRooms, setAvailableRooms] = useState<Room[]>([])
+    const [selectedRooms, setSelectedRooms] = useState<string[]>([])
+
     const fetchData = useCallback(async () => {
         setLoading(true)
         const [res, folRes, payRes] = await Promise.all([getReservation(id), getFolio(id), getReservationPaymentsAction(id)])
@@ -69,6 +76,8 @@ export default function ReservationDetailPage() {
     const roomType = reservation.room_type as { code: string; name: string; base_price?: number } | undefined
     const source = reservation.source as { name: string } | undefined
     const market = reservation.market as { name: string } | undefined
+    const agent = (reservation as any).agent as { name: string; company_type?: string } | undefined
+    const company = (reservation as any).company as { name: string; company_type?: string } | undefined
     const nights = Math.max(1, Math.ceil((new Date(reservation.check_out_date).getTime() - new Date(reservation.check_in_date).getTime()) / 86400000))
     const items = (folio?.items || []) as any[]
 
@@ -126,6 +135,63 @@ export default function ReservationDetailPage() {
         }
     }
 
+    const fetchAvailableRooms = async () => {
+        if (!reservation) return
+        const rooms = await checkAvailability(
+            reservation.check_in_date,
+            reservation.check_out_date,
+            reservation.room_type_id
+        )
+        setAvailableRooms(rooms)
+        setSelectedRooms([])
+    }
+
+    const handleSplitRooms = async () => {
+        if (!reservation || selectedRooms.length === 0) return
+        setSplitLoading(true)
+        
+        // Include the current room if already assigned
+        const currentRoomId = reservation.room_id
+        const allRoomIds = currentRoomId 
+            ? [currentRoomId, ...selectedRooms] 
+            : selectedRooms
+        
+        const result = await splitRooms(reservation.id, allRoomIds)
+        setSplitLoading(false)
+        
+        if (result.success) {
+            toast.success(`Split into ${allRoomIds.length} rooms`)
+            setSplitOpen(false)
+            fetchData()
+            router.push('/dashboard/reservations')
+        } else {
+            toast.error(result.error || 'Failed to split rooms')
+        }
+    }
+
+    const handleSplitRoomsAuto = async () => {
+        if (!reservation) return
+        setSplitLoading(true)
+        const result = await splitRoomsAuto(reservation.id)
+        setSplitLoading(false)
+        
+        if (result.success) {
+            toast.success('Rooms split automatically')
+            setSplitOpen(false)
+            fetchData()
+        } else {
+            toast.error(result.error || 'Failed to split rooms automatically')
+        }
+    }
+
+    const toggleRoomSelection = (roomId: string) => {
+        setSelectedRooms(prev => 
+            prev.includes(roomId) 
+                ? prev.filter(id => id !== roomId)
+                : [...prev, roomId]
+        )
+    }
+
     return (
         <div className="max-w-5xl mx-auto space-y-6">
             {/* Header */}
@@ -154,6 +220,11 @@ export default function ReservationDetailPage() {
                     {['reserved', 'checked_in'].includes(reservation.status) && (
                         <Button variant="outline" onClick={() => handleAction('cancel')} disabled={actionLoading} className="text-red-600 hover:bg-red-50">
                             <Ban className="mr-2 h-4 w-4" />Cancel
+                        </Button>
+                    )}
+                    {reservation.status === 'reserved' && (reservation.room_qty || 1) >= 1 && (
+                        <Button variant="outline" onClick={() => { setSplitOpen(true); fetchAvailableRooms() }} className="text-violet-600 border-violet-200 hover:bg-violet-50">
+                            <BedDouble className="mr-2 h-4 w-4" />Split Rooms
                         </Button>
                     )}
                 </div>
@@ -210,6 +281,69 @@ export default function ReservationDetailPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Agent / Company / VIP / Flight Info */}
+            {(agent || company || reservation.vip_level || reservation.arrival_flight || reservation.departure_flight) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {agent && (
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-cyan-50 flex items-center justify-center"><User className="w-5 h-5 text-cyan-600" /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">Travel Agent</p>
+                                        <p className="text-sm font-medium">{agent.name}</p>
+                                        <p className="text-xs text-slate-400">{agent.company_type || 'agent'}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                    {company && (
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center"><User className="w-5 h-5 text-indigo-600" /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">Company</p>
+                                        <p className="text-sm font-medium">{company.name}</p>
+                                        <p className="text-xs text-slate-400">{company.company_type || 'company'}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                    {reservation.vip_level && (
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${reservation.vip_level === 'VVIP' ? 'bg-amber-100' : reservation.vip_level === 'VIP' ? 'bg-yellow-100' : 'bg-slate-100'}`}>
+                                        <span className="text-lg font-bold">★</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">VIP Level</p>
+                                        <p className="text-sm font-bold">{reservation.vip_level}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                    {(reservation.arrival_flight || reservation.departure_flight) && (
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center"><CalendarDays className="w-5 h-5 text-sky-600" /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">Flights</p>
+                                        {reservation.arrival_flight && <p className="text-xs text-slate-700">↑ {reservation.arrival_flight}{reservation.arrival_time ? ` ${reservation.arrival_time}` : ''}</p>}
+                                        {reservation.departure_flight && <p className="text-xs text-slate-700">↓ {reservation.departure_flight}{reservation.departure_time ? ` ${reservation.departure_time}` : ''}</p>}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            )}
 
             {reservation.notes && (
                 <Card><CardContent className="p-4"><p className="text-sm text-slate-600"><span className="font-medium text-slate-700">Notes:</span> {reservation.notes}</p></CardContent></Card>
@@ -372,6 +506,78 @@ export default function ReservationDetailPage() {
                             </Button>
                         </div>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Split Rooms Dialog */}
+            <Dialog open={splitOpen} onOpenChange={setSplitOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Split Rooms</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            This reservation will be split into multiple rooms. Select the additional rooms below.
+                        </p>
+                        
+                        <div className="flex gap-2">
+                            <Button onClick={handleSplitRoomsAuto} disabled={splitLoading} variant="outline" className="flex-1">
+                                <BedDouble className="mr-2 h-4 w-4" />
+                                Auto Split (Auto-assign rooms)
+                            </Button>
+                        </div>
+                        
+                        <div className="text-sm text-slate-500 text-center">- OR -</div>
+                        
+                        <div className="space-y-2">
+                            <Label>Select Additional Rooms ({selectedRooms.length} selected)</Label>
+                            <div className="border rounded-md max-h-60 overflow-y-auto">
+                                {availableRooms.length > 0 ? (
+                                    availableRooms.map(room => (
+                                        <div 
+                                            key={room.id} 
+                                            className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-slate-50 ${selectedRooms.includes(room.id) ? 'bg-violet-50' : ''}`}
+                                            onClick={() => toggleRoomSelection(room.id)}
+                                        >
+                                            <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${selectedRooms.includes(room.id) ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`}>
+                                                {selectedRooms.includes(room.id) && (
+                                                    <span className="text-white text-xs">✓</span>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium">{room.room_number}</p>
+                                                <p className="text-xs text-slate-500">{(room as any).room_type?.name || 'Room'}</p>
+                                            </div>
+                                            <Badge variant="outline" className="text-xs">
+                                                {(room as any).status || 'available'}
+                                            </Badge>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-4 text-center text-slate-400">
+                                        No available rooms for selected dates
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                            <span className="text-sm text-slate-600">Total Rooms:</span>
+                            <span className="font-bold text-lg">{(reservation.room_id ? 1 : 0) + selectedRooms.length}</span>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setSplitOpen(false)}>Cancel</Button>
+                            <Button 
+                                onClick={handleSplitRooms} 
+                                disabled={splitLoading || selectedRooms.length === 0}
+                                className="bg-violet-600 hover:bg-violet-700"
+                            >
+                                {splitLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Split Rooms
+                            </Button>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

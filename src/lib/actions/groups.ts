@@ -39,13 +39,19 @@ export async function getGroupById(groupId: string) {
                 picked_up_rooms,
                 rate
             ),
-            reservations (
+            reservations!left (
                 id,
-                guest_name,
-                check_in,
-                check_out,
+                check_in_date,
+                check_out_date,
                 status,
-                room_type_id
+                room_type_id,
+                adults,
+                children,
+                rate,
+                guest:guests (
+                    first_name,
+                    last_name
+                )
             )
         `)
         .eq('id', groupId)
@@ -832,7 +838,10 @@ export async function getGroupMasterFolio(groupId: string) {
             .select()
             .single();
 
-        if (insertError) throw new Error('Failed to create Master Folio');
+        if (insertError) {
+            console.error('Error creating Master Folio:', insertError);
+            throw new Error('Failed to create Master Folio: ' + insertError.message);
+        }
         folio = newFolio;
     } else if (folioError) {
         throw new Error('Failed to fetch Master Folio');

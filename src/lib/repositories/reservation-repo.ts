@@ -13,6 +13,14 @@ export interface CreateReservationDTO {
     rate: number
     source_id?: string
     market_id?: string
+    agent_id?: string
+    company_id?: string
+    vip_level?: string
+    arrival_flight?: string
+    arrival_time?: string
+    departure_flight?: string
+    departure_time?: string
+    commission_percent?: number
     notes?: string
     created_by?: string
 }
@@ -35,6 +43,14 @@ export class ReservationRepository {
             p_rate: data.rate,
             p_source_id: data.source_id || null,
             p_market_id: data.market_id || null,
+            p_agent_id: data.agent_id || null,
+            p_company_id: data.company_id || null,
+            p_vip_level: data.vip_level || null,
+            p_arrival_flight: data.arrival_flight || null,
+            p_arrival_time: data.arrival_time || null,
+            p_departure_flight: data.departure_flight || null,
+            p_departure_time: data.departure_time || null,
+            p_commission_percent: data.commission_percent || 0,
             p_notes: data.notes || '',
             p_created_by: data.created_by || null,
         })

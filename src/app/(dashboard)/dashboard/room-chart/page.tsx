@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getRooms, updateRoomStatus, moveRoom } from '@/lib/actions/rooms'
 import { getReservations } from '@/lib/actions/reservations'
+import { createHousekeepingTask } from '@/lib/actions/housekeeping'
 import type { Room, Reservation } from '@/lib/types/database'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { 
   BedDouble, ArrowRightLeft, Eye, Loader2, Filter, 
   CheckCircle2, Clock, Wrench, Ban, LogIn,
-  Calendar, Users, ChevronRight, ChevronLeft
+  Calendar, Users, ChevronRight, ChevronLeft, Sparkles, Search, AlertCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -148,6 +149,9 @@ export default function RoomChartPage() {
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; room: Room | null }>({ x: 0, y: 0, room: null })
+  
+  // Quick action loading
+  const [quickActionLoading, setQuickActionLoading] = useState(false)
   
   // Drag and drop state
   const [draggedRoom, setDraggedRoom] = useState<Room | null>(null)
@@ -500,6 +504,51 @@ export default function RoomChartPage() {
     } else {
       toast.error(result.error || 'Failed to move room')
     }
+  }
+
+  // Quick Room Actions
+  const handleQuickClean = async (roomId: string) => {
+    setQuickActionLoading(true)
+    const result = await updateRoomStatus(roomId, 'clean')
+    setQuickActionLoading(false)
+    if (result.success) {
+      toast.success('Room marked as clean')
+      fetchData()
+    } else {
+      toast.error(result.error || 'Failed to update room')
+    }
+  }
+
+  const handleQuickInspect = async (roomId: string) => {
+    setQuickActionLoading(true)
+    const today = new Date().toISOString().split('T')[0]
+    const result = await createHousekeepingTask({
+      room_id: roomId,
+      task_type: 'inspection',
+      status: 'pending',
+      priority: 'normal',
+      scheduled_date: today,
+      notes: 'Quick inspection requested from room chart'
+    })
+    if (result.success) {
+      toast.success('Inspection task created')
+      fetchData()
+    } else {
+      toast.error(result.error || 'Failed to create inspection task')
+    }
+    setQuickActionLoading(false)
+  }
+
+  const handleQuickDisturb = async (roomId: string) => {
+    setQuickActionLoading(true)
+    const result = await updateRoomStatus(roomId, 'dirty')
+    if (result.success) {
+      toast.success('Room marked as do not disturb (dirty)')
+      fetchData()
+    } else {
+      toast.error(result.error || 'Failed to update room')
+    }
+    setQuickActionLoading(false)
   }
 
   if (loading) {
@@ -1236,7 +1285,7 @@ export default function RoomChartPage() {
       {/* Context Menu */}
       {contextMenu.room && (
         <div
-          className="fixed z-50 bg-white rounded-lg shadow-lg border p-2 min-w-[160px]"
+          className="fixed z-50 bg-white rounded-lg shadow-lg border p-2 min-w-[180px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={closeContextMenu}
         >
@@ -1270,6 +1319,38 @@ export default function RoomChartPage() {
                 </Link>
               )
             })()}
+            
+            {/* Quick Room Actions */}
+            <div className="border-t pt-1 mt-1">
+              <p className="text-[10px] text-slate-400 px-2 py-1 uppercase tracking-wide">Quick Actions</p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-start text-xs text-emerald-600"
+                onClick={() => handleQuickClean(contextMenu.room!.id)}
+                disabled={quickActionLoading}
+              >
+                <Sparkles className="w-3 h-3 mr-2" />Quick Clean
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-start text-xs text-cyan-600"
+                onClick={() => handleQuickInspect(contextMenu.room!.id)}
+                disabled={quickActionLoading}
+              >
+                <Search className="w-3 h-3 mr-2" />Request Inspect
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-start text-xs text-amber-600"
+                onClick={() => handleQuickDisturb(contextMenu.room!.id)}
+                disabled={quickActionLoading}
+              >
+                <AlertCircle className="w-3 h-3 mr-2" />Do Not Disturb
+              </Button>
+            </div>
           </div>
         </div>
       )}

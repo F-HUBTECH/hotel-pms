@@ -47,9 +47,17 @@ export default function NewBookingPage() {
     const [rate, setRate] = useState(0)
     const [sourceId, setSourceId] = useState('')
     const [marketId, setMarketId] = useState('')
+    const [agentId, setAgentId] = useState('')
+    const [companyId, setCompanyId] = useState('')
+    const [vipLevel, setVipLevel] = useState('')
+    const [arrivalFlight, setArrivalFlight] = useState('')
+    const [arrivalTime, setArrivalTime] = useState('')
+    const [departureFlight, setDepartureFlight] = useState('')
+    const [departureTime, setDepartureTime] = useState('')
     const [notes, setNotes] = useState('')
     const [sources, setSources] = useState<BookingSource[]>([])
     const [markets, setMarkets] = useState<Market[]>([])
+    const [companies, setCompanies] = useState<any[]>([])
     const [paymentCodes, setPaymentCodes] = useState<{code: string, description: string}[]>([])
 
     const [calculatingRate, setCalculatingRate] = useState(false)
@@ -72,6 +80,7 @@ export default function NewBookingPage() {
         supabase.from('room_types').select('*').order('name').then(({ data }) => setRoomTypes((data || []) as RoomType[]))
         supabase.from('booking_sources').select('*').order('name').then(({ data }) => setSources((data || []) as BookingSource[]))
         supabase.from('markets').select('*').order('name').then(({ data }) => setMarkets((data || []) as Market[]))
+        supabase.from('companies').select('*').order('name').then(({ data }) => setCompanies(data || []))
         supabase.from('revenue_transaction_codes').select('*').order('code').then(({ data }) => {
             if (data) setPaymentCodes(data)
         })
@@ -200,6 +209,13 @@ export default function NewBookingPage() {
                 status: 'reserved',
                 source_id: sourceId || null,
                 market_id: marketId || null,
+                agent_id: agentId || null,
+                company_id: companyId || null,
+                vip_level: vipLevel || null,
+                arrival_flight: arrivalFlight || null,
+                arrival_time: arrivalTime || null,
+                departure_flight: departureFlight || null,
+                departure_time: departureTime || null,
                 notes,
             })
             console.log('createReservation result:', result)
@@ -444,6 +460,60 @@ export default function NewBookingPage() {
                                 </Select>
                             </div>
                         </div>
+
+                        {/* Agent & Company */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                            <div className="space-y-2">
+                                <Label>Travel Agent</Label>
+                                <Select value={agentId} onValueChange={setAgentId}>
+                                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                                    <SelectContent>
+                                        {companies.filter(c => ['agent', 'ota'].includes(c.company_type)).map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.company_type})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Company (Corporate)</Label>
+                                <Select value={companyId} onValueChange={setCompanyId}>
+                                    <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+                                    <SelectContent>
+                                        {companies.filter(c => ['company', 'corporate'].includes(c.company_type)).map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.company_type})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* VIP & Flight Info */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+                            <div className="space-y-2">
+                                <Label>VIP Level</Label>
+                                <Select value={vipLevel} onValueChange={setVipLevel}>
+                                    <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="VIP">VIP</SelectItem>
+                                        <SelectItem value="VVIP">VVIP</SelectItem>
+                                        <SelectItem value="Regular">Regular</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Arrival Flight</Label>
+                                <Input value={arrivalFlight} onChange={(e) => setArrivalFlight(e.target.value)} placeholder="e.g. TG401" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Arrival Time</Label>
+                                <Input value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} placeholder="e.g. 14:30" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Departure Flight</Label>
+                                <Input value={departureFlight} onChange={(e) => setDepartureFlight(e.target.value)} placeholder="e.g. TG402" />
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Label>Notes</Label>
                             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Special requests..." rows={3} />

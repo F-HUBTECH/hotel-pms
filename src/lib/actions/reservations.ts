@@ -13,9 +13,18 @@ const reservationSchema = z.object({
     adults: z.number().min(1).default(1),
     children: z.number().min(0).default(0),
     rate: z.number().min(0).default(0),
+    room_qty: z.number().int().min(1).default(1),
     status: z.enum(['reserved', 'checked_in', 'checked_out', 'cancelled', 'no_show']).default('reserved'),
     source_id: z.string().uuid().nullable().optional(),
     market_id: z.string().uuid().nullable().optional(),
+    agent_id: z.string().uuid().nullable().optional(),
+    company_id: z.string().uuid().nullable().optional(),
+    vip_level: z.string().nullable().optional(),
+    arrival_flight: z.string().nullable().optional(),
+    arrival_time: z.string().nullable().optional(),
+    departure_flight: z.string().nullable().optional(),
+    departure_time: z.string().nullable().optional(),
+    commission_percent: z.number().min(0).max(100).nullable().optional(),
     notes: z.string().max(1000).default(''),
     created_by: z.string().uuid().nullable().optional(),
 })
@@ -134,7 +143,7 @@ export async function getReservation(id: string): Promise<Reservation | null> {
     const supabase = await createClient()
     const { data } = await supabase
         .from('reservations')
-        .select('*, guest:guests(*), room:rooms(id,room_number,status), room_type:room_types(id,code,name,base_price), source:booking_sources(id,name), market:markets(id,name)')
+        .select('*, guest:guests(*), room:rooms(id,room_number,status), room_type:room_types(id,code,name,base_price), source:booking_sources(id,name), market:markets(id,name), agent:companies(id,name,company_type), company:companies(id,name,company_type)')
         .eq('id', id)
         .single()
     return data as Reservation | null
@@ -428,4 +437,139 @@ export async function getTodayStats() {
         todayDepartures: departures.count || 0,
         todayRevenue,
     }
+}
+
+// ===== Split Rooms (Family/Group Booking) =====
+export async function splitRooms(
+    reservationId: string,
+    targetRoomIds: string[]
+): Promise<ActionResponse> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    // Get the original reservation
+    const { data: original, error: fetchError } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('id', reservationId)
+        .single()
+
+    if (fetchError || !original) {
+        return { success: false, error: 'Reservation not found' }
+    }
+
+    if (original.room_qty && original.room_qty <= 1) {
+        return { success: false, error: 'This reservation has only 1 room, no need to split' }
+    }
+
+    if (targetRoomIds.length === 0) {
+        return { success: false, error: 'No target rooms selected' }
+    }
+
+    // Create new reservations for each additional room
+    const newReservations: string[] = [reservationId]
+
+    for (let i = 1; i < targetRoomIds.length; i++) {
+        const { data: newRes, error: createError } = await supabase
+            .from('reservations')
+            .insert({
+                reservation_number: `${original.reservation_number}-${i + 1}`,
+                guest_id: original.guest_id,
+                room_id: targetRoomIds[i],
+                room_type_id: original.room_type_id,
+                check_in_date: original.check_in_date,
+                check_out_date: original.check_out_date,
+                adults: original.adults,
+                children: original.children,
+                rate: original.rate,
+                status: 'reserved',
+                source_id: original.source_id,
+                market_id: original.market_id,
+                notes: original.notes,
+                created_by: user.id,
+                property_id: original.property_id,
+                group_id: original.group_id,
+                allotment_code: original.allotment_code,
+                share_with_reservation_id: reservationId,
+                is_share: true,
+                room_qty: 1,
+            })
+            .select('id')
+            .single()
+
+        if (createError) {
+            return { success: false, error: `Failed to create reservation: ${createError.message}` }
+        }
+
+        newReservations.push(newRes.id)
+    }
+
+    // Update original reservation with first room
+    await supabase
+        .from('reservations')
+        .update({
+            room_id: targetRoomIds[0],
+            room_qty: targetRoomIds.length,
+        })
+        .eq('id', reservationId)
+
+    // Create folios for new reservations
+    for (let i = 1; i < newReservations.length; i++) {
+        await supabase.from('folios').insert({
+            reservation_id: newReservations[i],
+            status: 'open',
+        })
+    }
+
+    return {
+        success: true,
+        data: {
+            main_reservation_id: reservationId,
+            all_reservation_ids: newReservations,
+        } as any
+    }
+}
+
+// ===== Split Rooms Auto (Auto-assign rooms) =====
+export async function splitRoomsAuto(reservationId: string): Promise<ActionResponse> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    // Get the original reservation
+    const { data: original, error: fetchError } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('id', reservationId)
+        .single()
+
+    if (fetchError || !original) {
+        return { success: false, error: 'Reservation not found' }
+    }
+
+    const qty = original.room_qty || 1
+    if (qty <= 1) {
+        return { success: false, error: 'This reservation has only 1 room, no need to split' }
+    }
+
+    // Get available rooms for the same room type
+    const { data: availableRooms, error: roomsError } = await supabase
+        .from('rooms')
+        .select('id')
+        .eq('room_type_id', original.room_type_id)
+        .in('status', ['available', 'clean'])
+        .not('id', 'in', `(${original.room_id || 'null'})`)
+        .limit(qty - 1)
+
+    if (roomsError) {
+        return { success: false, error: `Failed to find rooms: ${roomsError.message}` }
+    }
+
+    if (!availableRooms || availableRooms.length < qty - 1) {
+        return { success: false, error: `Not enough rooms available. Need ${qty - 1}, found ${availableRooms?.length || 0}` }
+    }
+
+    const targetRoomIds = [original.room_id, ...availableRooms.map(r => r.id)]
+    return splitRooms(reservationId, targetRoomIds)
 }
