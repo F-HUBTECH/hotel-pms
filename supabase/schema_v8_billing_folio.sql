@@ -742,13 +742,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.rpc_transfer_folio_items(
   p_item_ids        UUID[],
   p_target_folio_id UUID,
-  p_user_id         UUID  DEFAULT NULL
+  p_user_id         UUID  DEFAULT NULL,
+  p_remark          TEXT  DEFAULT NULL
 )
 RETURNS INT AS $$
 DECLARE
   v_moved     INT := 0;
   v_item_id   UUID;
   v_src_folio UUID;
+  v_item_data RECORD;
 BEGIN
   -- Validate target folio exists and is open
   IF NOT EXISTS (
@@ -765,11 +767,26 @@ BEGIN
   END IF;
 
   FOREACH v_item_id IN ARRAY p_item_ids LOOP
-    SELECT folio_id INTO v_src_folio
+    SELECT folio_id, tran_code, description, amount, item_date INTO v_item_data
     FROM public.folio_items
     WHERE id = v_item_id AND is_voided = false AND payf NOT IN ('W','P');
 
-    IF FOUND AND v_src_folio <> p_target_folio_id THEN
+    IF FOUND AND v_item_data.folio_id <> p_target_folio_id THEN
+      v_src_folio := v_item_data.folio_id;
+      
+      -- Log the transfer before updating
+      INSERT INTO public.folio_transfer_logs (
+        item_id, source_folio_id, target_folio_id,
+        tran_code, description, amount, tran_date,
+        transferred_by, remark, transfer_type
+      ) VALUES (
+        v_item_id, v_src_folio, p_target_folio_id,
+        v_item_data.tran_code, v_item_data.description, 
+        v_item_data.amount, v_item_data.item_date,
+        p_user_id, p_remark, 'folio'
+      );
+
+      -- Update the item's folio
       UPDATE public.folio_items
       SET folio_id = p_target_folio_id
       WHERE id = v_item_id;

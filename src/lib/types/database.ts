@@ -319,6 +319,8 @@ export interface Reservation {
   arrival_time?: string | null;
   departure_flight?: string | null;
   departure_time?: string | null;
+  // Allotment
+  allotment_code?: string | null;
   // Joined
   guest?: Guest;
   room?: Room;

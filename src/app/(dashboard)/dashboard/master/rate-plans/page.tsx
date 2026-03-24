@@ -10,12 +10,23 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Search, Loader2, Edit, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, Loader2, Edit, Eye, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
+interface RatePlan {
+    id: string
+    name: string
+    room_type_id: string
+    base_price: number
+    refundable: boolean
+    cancellation_policy: string
+    is_active: boolean
+    room_type?: { name: string }
+}
+
 export default function RatePlansPage() {
-    const [data, setData] = useState<any[]>([])
+    const [data, setData] = useState<RatePlan[]>([])
     const [roomTypes, setRoomTypes] = useState<any[]>([])
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
@@ -24,6 +35,7 @@ export default function RatePlansPage() {
 
     const [formOpen, setFormOpen] = useState(false)
     const [formLoading, setFormLoading] = useState(false)
+    const [editingPlan, setEditingPlan] = useState<RatePlan | null>(null)
     const [form, setForm] = useState({ name: '', room_type_id: '', base_price: 0, refundable: true, cancellation_policy: '', is_active: true })
     const pageSize = 10
 
@@ -31,7 +43,7 @@ export default function RatePlansPage() {
         setLoading(true)
         const [ratesRes, rtRes] = await Promise.all([
             getRatePlans(page, pageSize, search),
-            getRoomTypes(1, 100, '') // get all active RTs
+            getRoomTypes(1, 100, '')
         ])
         if (ratesRes.success) { setData(ratesRes.data); setTotal(ratesRes.count) }
         if (rtRes && rtRes.data) { setRoomTypes(rtRes.data) }
@@ -44,19 +56,49 @@ export default function RatePlansPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setFormLoading(true)
-        const res = await createRatePlan(form)
-        setFormLoading(false)
-        if (res.success) {
-            toast.success('Rate Plan created')
-            setFormOpen(false)
-            fetchData()
+        
+        let res
+        if (editingPlan) {
+            res = await updateRatePlan(editingPlan.id, form)
+            if (res.success) {
+                toast.success('Rate Plan updated')
+                setFormOpen(false)
+                setEditingPlan(null)
+            } else {
+                toast.error(res.error || 'Update failed')
+            }
         } else {
-            toast.error(res.error || 'Creation failed')
+            res = await createRatePlan(form)
+            if (res.success) {
+                toast.success('Rate Plan created')
+                setFormOpen(false)
+            } else {
+                toast.error(res.error || 'Creation failed')
+            }
+        }
+        
+        setFormLoading(false)
+        if (res?.success) {
+            fetchData()
         }
     }
 
     const openCreate = () => {
+        setEditingPlan(null)
         setForm({ name: '', room_type_id: '', base_price: 0, refundable: true, cancellation_policy: '', is_active: true })
+        setFormOpen(true)
+    }
+
+    const openEdit = (plan: RatePlan) => {
+        setEditingPlan(plan)
+        setForm({
+            name: plan.name,
+            room_type_id: plan.room_type_id,
+            base_price: Number(plan.base_price),
+            refundable: plan.refundable,
+            cancellation_policy: plan.cancellation_policy || '',
+            is_active: plan.is_active
+        })
         setFormOpen(true)
     }
 
@@ -108,11 +150,16 @@ export default function RatePlansPage() {
                                             </span>
                                         </td>
                                         <td className="p-4 text-right relative">
-                                            <Link href={`/dashboard/master/rate-plans/${plan.id}`}>
-                                                <Button variant="outline" size="sm" className="h-8">
-                                                    <Eye className="w-4 h-4 mr-1.5" /> Configure Rates
+                                            <div className="flex justify-end gap-2">
+                                                <Button variant="ghost" size="sm" onClick={() => openEdit(plan)}>
+                                                    <Edit className="w-4 h-4" />
                                                 </Button>
-                                            </Link>
+                                                <Link href={`/dashboard/master/rate-plans/${plan.id}`}>
+                                                    <Button variant="outline" size="sm" className="h-8">
+                                                        <Eye className="w-4 h-4 mr-1.5" /> Configure Rates
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -124,7 +171,7 @@ export default function RatePlansPage() {
 
             <Dialog open={formOpen} onOpenChange={setFormOpen}>
                 <DialogContent className="sm:max-w-md">
-                    <DialogHeader><DialogTitle>New Rate Plan</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{editingPlan ? 'Edit Rate Plan' : 'New Rate Plan'}</DialogTitle></DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
                             <Label>Plan Name *</Label>
@@ -151,7 +198,8 @@ export default function RatePlansPage() {
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={formLoading || !form.room_type_id} className="bg-indigo-600 hover:bg-indigo-700">
-                                {formLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create
+                                {formLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                {editingPlan ? 'Update' : 'Create'}
                             </Button>
                         </div>
                     </form>

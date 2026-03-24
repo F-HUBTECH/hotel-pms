@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { checkAvailability, createReservation } from '@/lib/actions/reservations'
 import { searchGuests, createGuest } from '@/lib/actions/guests'
+import { getCorporateAllotments, checkAllotmentAvailability, pickFromAllotment } from '@/lib/actions/allotments'
 import type { Room, Guest, RoomType, BookingSource, Market } from '@/lib/types/database'
 import { createBrowserClient } from '@supabase/ssr'
 import { Button } from '@/components/ui/button'
@@ -13,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, ArrowRight, Search, Plus, Loader2, Check, BedDouble, CalendarDays, User, CreditCard } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { ArrowLeft, ArrowRight, Search, Plus, Loader2, Check, BedDouble, CalendarDays, User, CreditCard, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const STEPS = ['Dates & Room', 'Select Room', 'Guest Info', 'Confirm']
@@ -65,6 +67,13 @@ export default function NewBookingPage() {
     const [selectedRatePlanId, setSelectedRatePlanId] = useState('')
     const [totalEstimate, setTotalEstimate] = useState(0)
 
+    // Allotment
+    const [allotments, setAllotments] = useState<any[]>([])
+    const [selectedAllotment, setSelectedAllotment] = useState<any>(null)
+    const [availableAllotments, setAvailableAllotments] = useState<any[]>([])
+    const [allotmentDialogOpen, setAllotmentDialogOpen] = useState(false)
+    const [checkingAllotment, setCheckingAllotment] = useState(false)
+
     // Deposit / Advance Payment
     const [collectDeposit, setCollectDeposit] = useState(false)
     const [depositAmount, setDepositAmount] = useState(0)
@@ -83,6 +92,10 @@ export default function NewBookingPage() {
         supabase.from('companies').select('*').order('name').then(({ data }) => setCompanies(data || []))
         supabase.from('revenue_transaction_codes').select('*').order('code').then(({ data }) => {
             if (data) setPaymentCodes(data)
+        })
+        // Load allotments
+        getCorporateAllotments().then(res => {
+            if (res.success) setAllotments(res.data || [])
         })
     }, [])
 
@@ -120,6 +133,47 @@ export default function NewBookingPage() {
             setTotalEstimate(0)
         }
     }, [checkIn, checkOut, selectedRatePlanId])
+
+    // Check allotment availability when company/agent, dates, or room type changes
+    const checkAllotmentAvailabilityForSelection = async () => {
+        if (!selectedRoomTypeId || !checkIn || !checkOut) return;
+        
+        setCheckingAllotment(true);
+        const res = await checkAllotmentAvailability(selectedRoomTypeId, checkIn, checkOut, 1);
+        if (res.success && res.data) {
+            // Filter by selected company/agent if applicable
+            let filtered = res.data;
+            if (companyId) {
+                filtered = filtered.filter((a: any) => a.company_name === companies.find(c => c.id === companyId)?.name);
+            }
+            if (agentId) {
+                filtered = filtered.filter((a: any) => a.company_name === companies.find(c => c.id === agentId)?.name);
+            }
+            setAvailableAllotments(filtered);
+        } else {
+            setAvailableAllotments([]);
+        }
+        setCheckingAllotment(false);
+    };
+
+    const selectAllotment = (allot: any) => {
+        setSelectedAllotment(allot);
+        // Apply the allotment rate
+        if (allot.daily && allot.daily.length > 0) {
+            const avgRate = allot.daily.reduce((sum: number, d: any) => sum + (d.total_rooms > 0 ? d.total_rooms : 0), 0);
+            // Use the first day's rate or calculate average
+            const firstDay = allot.daily[0];
+            if (firstDay) {
+                setRate(Number(firstDay.base_rate) || rate);
+            }
+        }
+        setAllotmentDialogOpen(false);
+        toast.success(`Allotment ${allot.allot_code} selected`);
+    };
+
+    const clearAllotment = () => {
+        setSelectedAllotment(null);
+    };
 
     // Search availability when moving to step 2
     const searchAvailability = async () => {
@@ -217,6 +271,7 @@ export default function NewBookingPage() {
                 departure_flight: departureFlight || null,
                 departure_time: departureTime || null,
                 notes,
+                allotment_code: selectedAllotment?.allot_code || null,
             })
             console.log('createReservation result:', result)
             if (result.success) {
@@ -487,6 +542,42 @@ export default function NewBookingPage() {
                             </div>
                         </div>
 
+                        {/* Allotment Selection */}
+                        <div className="pt-4 border-t">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label>Allotment (for contracted rates)</Label>
+                                    {!selectedAllotment && (
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => {
+                                                checkAllotmentAvailabilityForSelection();
+                                                setAllotmentDialogOpen(true);
+                                            }}
+                                            disabled={!selectedRoomTypeId || !checkIn || !checkOut}
+                                        >
+                                            <Building2 className="w-4 h-4 mr-2" /> 
+                                            {checkingAllotment ? 'Checking...' : 'Select Allotment'}
+                                        </Button>
+                                    )}
+                                </div>
+                                {selectedAllotment && (
+                                    <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                        <div>
+                                            <p className="font-medium text-indigo-800">{selectedAllotment.allot_code}</p>
+                                            <p className="text-sm text-indigo-600">{selectedAllotment.company_name}</p>
+                                            <p className="text-xs text-indigo-500">
+                                                Min {selectedAllotment.min_available} rooms available for selected dates
+                                            </p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" onClick={clearAllotment}>×</Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* VIP & Flight Info */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
                             <div className="space-y-2">
@@ -619,6 +710,60 @@ export default function NewBookingPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Allotment Selection Dialog */}
+            <Dialog open={allotmentDialogOpen} onOpenChange={setAllotmentDialogOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Select Allotment</DialogTitle>
+                        <DialogDescription>
+                            Choose an allotment contract for contracted rates. Only allotments with availability for your selected dates are shown.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        {availableAllotments.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500">
+                                {checkingAllotment ? (
+                                    <div className="flex items-center justify-center">
+                                        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                                        <span className="ml-2">Checking availability...</span>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p>No allotments available for the selected dates.</p>
+                                        <p className="text-sm mt-2">Try selecting different dates or room type.</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                                {availableAllotments.map((allot) => (
+                                    <button
+                                        key={allot.allotment_id}
+                                        onClick={() => selectAllotment(allot)}
+                                        className="w-full p-4 text-left rounded-lg border hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold text-slate-800">{allot.allot_code}</p>
+                                                <p className="text-sm text-slate-600">{allot.company_name}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <Badge variant={allot.min_available >= 3 ? 'default' : 'secondary'}>
+                                                    {allot.min_available} rooms avail
+                                                </Badge>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    {allot.total_days} nights
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

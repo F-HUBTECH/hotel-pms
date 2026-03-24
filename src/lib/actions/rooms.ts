@@ -232,3 +232,18 @@ export async function getRoomStatusSummary(): Promise<Record<string, number>> {
     
     return summary
 }
+
+export async function getRoomTypes(page = 1, pageSize = 100, search = ''): Promise<PaginatedResponse<any>> {
+    const supabase = await createClient()
+    let query = supabase.from('room_types').select('*', { count: 'exact' })
+    
+    if (search) query = query.or(`code.ilike.%${search}%,name.ilike.%${search}%`)
+    
+    query = query.eq('deleted_at', null).order('name')
+    
+    const { data, error, count } = await query
+    
+    if (error) return { data: [], count: 0, page, pageSize }
+    
+    return { data: data || [], count: count || 0, page, pageSize }
+}

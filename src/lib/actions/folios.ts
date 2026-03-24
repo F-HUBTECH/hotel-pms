@@ -45,6 +45,8 @@ const receivePaymentSchema = z.object({
   card_type: z.string().optional().default(""),
   card_number_last4: z.string().optional().default(""),
   approval_code: z.string().optional().default(""),
+  payf: z.enum(['P', 'C']).optional().default('P'),
+  payment_type: z.enum(['PA', 'PT', 'PR']).optional().default('PA'),
 });
 
 const billingAddressSchema = z.object({
@@ -1397,7 +1399,9 @@ export async function updateFolioRemark(
 // ─────────────────────────────────────────────
 // RECEIVE PAYMENT FOR SELECTED ITEMS
 // KFO: btnSelectedPay — pays only checked/selected folio items
-// Creates a payment entry and marks those items as paid (payf='P')
+// Creates a payment entry and marks those items as paid
+// payf: 'P' = Paid with Tax Invoice, 'C' = Paid Cash (no tax invoice)
+// payment_type: 'PA' = Pay All, 'PT' = Partial, 'PR' = Refund
 // ─────────────────────────────────────────────
 export async function receivePaymentForItems(
   itemIds: string[],
@@ -1412,6 +1416,9 @@ export async function receivePaymentForItems(
     card_type?: string;
     card_number_last4?: string;
     approval_code?: string;
+    payf?: 'P' | 'C';
+    payment_type?: 'PA' | 'PT' | 'PR';
+    amount?: number;
   },
 ): Promise<ActionResponse<{ payment_id: string }>> {
   if (itemIds.length === 0)
@@ -1436,10 +1443,19 @@ export async function receivePaymentForItems(
     return { success: false, error: "No unpaid items in selection" };
 
   const folioId = unpaidItems[0].folio_id;
-  const totalAmt = unpaidItems.reduce(
+  
+  // Use provided amount or calculate from items
+  const totalAmt = paymentData.amount ?? unpaidItems.reduce(
     (s: number, i: any) => s + Number(i.amount),
     0,
   );
+
+  // Determine PAYF value: P = Tax Invoice, C = Cash
+  const payfValue = paymentData.payf ?? 'P';
+  
+  // For refunds, amount should be negative (money going back)
+  const isRefund = paymentData.payment_type === 'PR';
+  const finalAmount = isRefund ? -Math.abs(totalAmt) : totalAmt;
 
   const { data: shiftRow } = await supabase
     .from("audit_shifts")
@@ -1448,6 +1464,17 @@ export async function receivePaymentForItems(
     .maybeSingle();
   const shiftCode = shiftRow?.shift_code ?? "";
 
+  // Check folio lock
+  const { data: folio } = await supabase
+    .from("folios")
+    .select("is_locked, status")
+    .eq("id", folioId)
+    .single();
+
+  if (!folio) return { success: false, error: "Folio not found" };
+  if (folio.is_locked) return { success: false, error: "Folio is locked." };
+  if (folio.status !== "open") return { success: false, error: "Folio is not open." };
+
   // Insert payment record
   const { data: pymt, error: pymtErr } = await supabase
     .from("folio_payments")
@@ -1455,7 +1482,7 @@ export async function receivePaymentForItems(
       folio_id: folioId,
       tran_code: paymentData.tran_code,
       payment_method: paymentData.payment_method,
-      amount: totalAmt,
+      amount: finalAmount,
       reference_number: paymentData.reference_number ?? "",
       notes: paymentData.notes ?? "",
       pay_remark1: paymentData.pay_remark1 ?? "",
@@ -1477,10 +1504,10 @@ export async function receivePaymentForItems(
       error: pymtErr?.message ?? "Payment insert failed",
     };
 
-  // Mark selected items as paid
+  // Mark selected items as paid with appropriate PAYF value
   await supabase
     .from("folio_items")
-    .update({ payf: "P" })
+    .update({ payf: payfValue })
     .in(
       "id",
       unpaidItems.map((i: any) => i.id),

@@ -26,6 +26,8 @@ import {
   postCorrectionItem,
   updateFolioRemark,
 } from "@/lib/actions/folios";
+import { checkRight } from "@/lib/actions/user-rights";
+import { FUNCTION_CODES } from "@/lib/constants/function-codes";
 import { PAYMENT_METHODS } from "@/lib/constants/payment-methods";
 import type {
   Folio,
@@ -455,6 +457,15 @@ export default function CashierPage() {
   const [remarkText, setRemarkText] = useState("");
   const [remarkLoading, setRemarkLoading] = useState(false);
 
+  // ─── Partial Payment dialog ──────────────────────────────────────────────
+  const [partialPayOpen, setPartialPayOpen] = useState(false);
+  const [partialPayAmount, setPartialPayAmount] = useState(0);
+  const [partialPayLoading, setPartialPayLoading] = useState(false);
+
+  // ─── Payment type: PA=Pay All, PT=Partial, PR=Refund ───────────────────
+  const [paymentType, setPaymentType] = useState<'PA' | 'PT' | 'PR'>('PA');
+  const [hasTaxInvoice, setHasTaxInvoice] = useState(true);
+
   // ─── Load guest list ──────────────────────────────────────────────────────
   const fetchList = useCallback(async () => {
     setListLoading(true);
@@ -598,24 +609,156 @@ export default function CashierPage() {
     }
   };
 
-  // ─── Receive payment ──────────────────────────────────────────────────────
+  // ─── Receive payment (Pay All) ────────────────────────────────────────────
   const handlePayment = async () => {
     if (!activeFolio) return;
+    
+    const balance = activeFolio.balance ?? 0;
+    
+    // For PA (Pay All), auto-fill the balance
+    if (paymentType === 'PA') {
+      setPayForm(f => ({ ...f, amount: Math.max(0, balance) }));
+    }
+    
     if (payForm.amount <= 0) { toast.error("Amount must be greater than 0"); return; }
+    
     setPayLoading(true);
-    const result = await receiveFolioPayment({ folio_id: activeFolio.id, ...payForm });
+    
+    // For refund (PR), amount is negative
+    const isRefund = paymentType === 'PR';
+    const finalAmount = isRefund ? -Math.abs(payForm.amount) : payForm.amount;
+    
+    // For Pay All: mark all unpaid items as paid with the appropriate PAYF value
+    if (paymentType === 'PA' || paymentType === 'PR') {
+      const unpaidItems = (activeFolio.items ?? []).filter(
+        (i: any) => !i.is_voided && i.payf !== 'P' && i.payf !== 'W' && i.payf !== 'C'
+      );
+      
+      if (unpaidItems.length > 0) {
+        // Set PAYF on items: P = Tax Invoice, C = Cash
+        const payfValue = hasTaxInvoice ? 'P' : 'C';
+        
+        // First record the payment
+        const payResult = await receiveFolioPayment({
+          folio_id: activeFolio.id,
+          tran_code: payForm.tran_code,
+          payment_method: payForm.payment_method,
+          amount: finalAmount,
+          reference_number: payForm.reference_number,
+          notes: payForm.notes,
+          pay_remark1: payForm.pay_remark1,
+          pay_remark2: payForm.pay_remark2,
+          pay_remark3: payForm.pay_remark3,
+          card_type: payForm.card_type,
+          card_number_last4: payForm.card_number_last4,
+          approval_code: payForm.approval_code,
+          payf: payfValue,
+          payment_type: paymentType,
+        });
+        
+        if (!payResult.success) {
+          setPayLoading(false);
+          toast.error(payResult.error || "Failed to record payment");
+          return;
+        }
+        
+        // Then mark all unpaid items as paid
+        await receivePaymentForItems(
+          unpaidItems.map((i: any) => i.id),
+          {
+            tran_code: payForm.tran_code,
+            payment_method: payForm.payment_method,
+            reference_number: payForm.reference_number,
+            notes: payForm.notes,
+            pay_remark1: payForm.pay_remark1,
+            pay_remark2: payForm.pay_remark2,
+            pay_remark3: payForm.pay_remark3,
+            card_type: payForm.card_type,
+            card_number_last4: payForm.card_number_last4,
+            approval_code: payForm.approval_code,
+            payf: payfValue,
+            payment_type: paymentType,
+          }
+        );
+      } else {
+        // No unpaid items, just record the payment
+        const payResult = await receiveFolioPayment({
+          folio_id: activeFolio.id,
+          tran_code: payForm.tran_code,
+          payment_method: payForm.payment_method,
+          amount: finalAmount,
+          reference_number: payForm.reference_number,
+          notes: payForm.notes,
+          pay_remark1: payForm.pay_remark1,
+          pay_remark2: payForm.pay_remark2,
+          pay_remark3: payForm.pay_remark3,
+          card_type: payForm.card_type,
+          card_number_last4: payForm.card_number_last4,
+          approval_code: payForm.approval_code,
+          payf: 'P',
+          payment_type: paymentType,
+        });
+        
+        if (!payResult.success) {
+          setPayLoading(false);
+          toast.error(payResult.error || "Failed to record payment");
+          return;
+        }
+      }
+    }
+    
     setPayLoading(false);
+    toast.success(paymentType === 'PR' ? "Refund processed" : "Payment recorded");
+    setPayOpen(false);
+    setPayForm({
+      tran_code: "CASH", payment_method: "cash", amount: 0,
+      reference_number: "", notes: "", pay_remark1: "", pay_remark2: "", pay_remark3: "",
+      card_type: "", card_number_last4: "", approval_code: "",
+    });
+    setPaymentType('PA');
+    setHasTaxInvoice(true);
+    await refreshFolios();
+    
+    // Auto-print receipt after payment (KFO: PreviewAndWriteBill)
+    setTimeout(() => handlePrintFolio(), 500);
+  };
+
+  // ─── Partial Payment ─────────────────────────────────────────────────────
+  const handlePartialPayment = async () => {
+    if (!activeFolio) return;
+    if (partialPayAmount <= 0) { toast.error("Amount must be greater than 0"); return; }
+    
+    setPartialPayLoading(true);
+    
+    // For partial payment, we don't mark items as paid - just record the payment
+    const result = await receiveFolioPayment({
+      folio_id: activeFolio.id,
+      tran_code: payForm.tran_code,
+      payment_method: payForm.payment_method,
+      amount: partialPayAmount,
+      reference_number: payForm.reference_number,
+      notes: payForm.notes,
+      pay_remark1: payForm.pay_remark1,
+      pay_remark2: payForm.pay_remark2,
+      pay_remark3: payForm.pay_remark3,
+      card_type: payForm.card_type,
+      card_number_last4: payForm.card_number_last4,
+      approval_code: payForm.approval_code,
+      payf: hasTaxInvoice ? 'P' : 'C',
+      payment_type: 'PT',
+    });
+    
+    setPartialPayLoading(false);
     if (result.success) {
-      toast.success("Payment recorded");
-      setPayOpen(false);
-      setPayForm({
-        tran_code: "CASH", payment_method: "cash", amount: 0,
-        reference_number: "", notes: "", pay_remark1: "", pay_remark2: "", pay_remark3: "",
-        card_type: "", card_number_last4: "", approval_code: "",
-      });
+      toast.success("Partial payment recorded");
+      setPartialPayOpen(false);
+      setPartialPayAmount(0);
       await refreshFolios();
+      
+      // Auto-print receipt after payment
+      setTimeout(() => handlePrintFolio(), 500);
     } else {
-      toast.error(result.error || "Failed to record payment");
+      toast.error(result.error || "Failed to record partial payment");
     }
   };
 
@@ -865,13 +1008,21 @@ export default function CashierPage() {
       return;
     }
     setSelPayLoading(true);
-    const result = await receivePaymentForItems(selectedItemIds, selPayForm);
+    
+    // Set PAYF based on Tax Invoice toggle: P = Tax Invoice, C = Cash
+    const result = await receivePaymentForItems(selectedItemIds, {
+      ...selPayForm,
+      payf: hasTaxInvoice ? 'P' : 'C',
+    });
     setSelPayLoading(false);
     if (result.success) {
       toast.success("Payment recorded for selected items");
       setSelPayOpen(false);
       setSelectedItemIds([]);
       await refreshFolios();
+      
+      // Auto-print receipt after payment
+      setTimeout(() => handlePrintFolio(), 500);
     } else {
       toast.error(result.error || "Failed to record payment");
     }
@@ -1128,7 +1279,14 @@ export default function CashierPage() {
               <Button size="sm" onClick={() => setPostOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
                 <Plus className="w-4 h-4 mr-2" /> Post Charge
               </Button>
-              <Button size="sm" onClick={() => setPayOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button size="sm" onClick={async () => {
+                const hasRight = await checkRight(FUNCTION_CODES.PAYMENT, "can_view");
+                if (hasRight) {
+                  setPayOpen(true);
+                } else {
+                  toast.error("You don't have permission to access Payment (KO39)");
+                }
+              }} className="bg-emerald-600 hover:bg-emerald-700">
                 <CreditCard className="w-4 h-4 mr-2" /> Receive Payment
               </Button>
               <Button size="sm" variant="outline" onClick={() => setAdvPayOpen(true)}>
@@ -1293,7 +1451,16 @@ export default function CashierPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem variant="destructive" onClick={() => { setVoidPayTarget(pay); setVoidPayReason(""); setVoidPayOpen(true); }}>
+                              <DropdownMenuItem variant="destructive" onClick={async () => { 
+                                const hasRight = await checkRight(FUNCTION_CODES.VOID, "can_view");
+                                if (hasRight) {
+                                  setVoidPayTarget(pay); 
+                                  setVoidPayReason(""); 
+                                  setVoidPayOpen(true); 
+                                } else {
+                                  toast.error("You don't have permission to Void (KO40)");
+                                }
+                              }}>
                                 <Ban className="mr-2 h-4 w-4" />
                                 Void Payment
                               </DropdownMenuItem>
@@ -1398,6 +1565,74 @@ export default function CashierPage() {
             <DialogTitle>Receive Payment</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Balance Display */}
+            {activeFolio && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Balance Due:</span>
+                  <span className="text-xl font-bold text-slate-800">฿{fmt(activeFolio.balance)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Payment Type Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Payment Type *</label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={paymentType === 'PA' ? 'default' : 'outline'}
+                  className={paymentType === 'PA' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  onClick={() => {
+                    setPaymentType('PA');
+                    if (activeFolio) {
+                      setPayForm(f => ({ ...f, amount: Math.max(0, activeFolio.balance ?? 0) }));
+                    }
+                  }}
+                >
+                  Pay All
+                </Button>
+                <Button
+                  type="button"
+                  variant={paymentType === 'PT' ? 'default' : 'outline'}
+                  className={paymentType === 'PT' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  onClick={() => {
+                    setPaymentType('PT');
+                    setPartialPayAmount(0);
+                    setPartialPayOpen(true);
+                    setPayOpen(false);
+                  }}
+                >
+                  Partial
+                </Button>
+                <Button
+                  type="button"
+                  variant={paymentType === 'PR' ? 'default' : 'outline'}
+                  className={paymentType === 'PR' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                  onClick={() => setPaymentType('PR')}
+                >
+                  Refund
+                </Button>
+              </div>
+            </div>
+
+            {/* Tax Invoice Toggle */}
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="hasTaxInvoice"
+                checked={hasTaxInvoice}
+                onChange={(e) => setHasTaxInvoice(e.target.checked)}
+                className="rounded border-amber-400"
+              />
+              <label htmlFor="hasTaxInvoice" className="text-sm font-medium text-amber-800">
+                Tax Invoice / ใบเสร็จรับเงิน
+              </label>
+              <span className="text-xs text-amber-600 ml-auto">
+                {hasTaxInvoice ? 'PAID (P)' : 'CASH (C)'}
+              </span>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Payment Method *</label>
               <Select value={payForm.tran_code} onValueChange={(v) => syncPaymentMethod(v, payForm, setPayForm)}>
@@ -1409,23 +1644,130 @@ export default function CashierPage() {
                 </SelectContent>
               </Select>
             </div>
+            
             <div className="space-y-2">
               <label className="text-sm font-medium">Amount *</label>
-              <Input type="number" min={0} step="0.01" value={payForm.amount} onChange={(e) => setPayForm({...payForm, amount: Number(e.target.value)})} />
+              <Input 
+                type="number" 
+                min={0} 
+                step="0.01" 
+                value={paymentType === 'PA' ? (activeFolio?.balance ?? 0) : payForm.amount}
+                onChange={(e) => setPayForm({...payForm, amount: Number(e.target.value)})}
+                disabled={paymentType === 'PA'}
+              />
             </div>
+            
             <div className="space-y-2">
               <label className="text-sm font-medium">Reference Number</label>
               <Input value={payForm.reference_number} onChange={(e) => setPayForm({...payForm, reference_number: e.target.value})} />
             </div>
+            
             <div className="space-y-2">
               <label className="text-sm font-medium">Notes</label>
               <Input value={payForm.notes} onChange={(e) => setPayForm({...payForm, notes: e.target.value})} />
             </div>
+
+            {paymentType === 'PR' && (
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded text-sm text-amber-700">
+                Refund: Money will be returned to guest. Please ensure this is correct.
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
-              <Button onClick={handlePayment} disabled={payLoading} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button variant="outline" onClick={() => {
+                setPayOpen(false);
+                setPaymentType('PA');
+                setHasTaxInvoice(true);
+              }}>Cancel</Button>
+              <Button 
+                onClick={handlePayment} 
+                disabled={payLoading || (paymentType === 'PA' && (activeFolio?.balance ?? 0) <= 0)} 
+                className={paymentType === 'PR' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+              >
                 {payLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Receive Payment
+                {paymentType === 'PR' ? 'Process Refund' : 'Receive Payment'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ───── Partial Payment Dialog ────────────────────────────────────────── */}
+      <Dialog open={partialPayOpen} onOpenChange={setPartialPayOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Partial Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-slate-600">Balance:</span>
+                <span className="text-lg font-bold text-slate-800">฿{fmt(activeFolio?.balance ?? 0)}</span>
+              </div>
+            </div>
+
+            {/* Tax Invoice Toggle for Partial */}
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="partialHasTaxInvoice"
+                checked={hasTaxInvoice}
+                onChange={(e) => setHasTaxInvoice(e.target.checked)}
+                className="rounded border-amber-400"
+              />
+              <label htmlFor="partialHasTaxInvoice" className="text-sm font-medium text-amber-800">
+                Tax Invoice / ใบเสร็จรับเงิน
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount to Pay *</label>
+              <Input 
+                type="number" 
+                min={0} 
+                max={activeFolio?.balance} 
+                step="0.01" 
+                value={partialPayAmount || ''}
+                onChange={(e) => setPartialPayAmount(Number(e.target.value))}
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Payment Method *</label>
+              <Select value={payForm.tran_code} onValueChange={(v) => syncPaymentMethod(v, payForm, setPayForm)}>
+                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectContent>
+                  {paymentCodes.map((pm) => (
+                    <SelectItem key={pm.code} value={pm.code}>{pm.code} — {pm.description}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reference Number</label>
+              <Input value={payForm.reference_number} onChange={(e) => setPayForm({...payForm, reference_number: e.target.value})} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Input value={payForm.notes} onChange={(e) => setPayForm({...payForm, notes: e.target.value})} />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setPartialPayOpen(false);
+                setPaymentType('PA');
+                setPartialPayAmount(0);
+              }}>Cancel</Button>
+              <Button 
+                onClick={handlePartialPayment} 
+                disabled={partialPayLoading || partialPayAmount <= 0 || partialPayAmount > (activeFolio?.balance ?? 0)}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {partialPayLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Pay ฿{partialPayAmount.toLocaleString()}
               </Button>
             </div>
           </div>
@@ -1639,6 +1981,24 @@ export default function CashierPage() {
               <div className="text-sm text-slate-600">Selected Items:</div>
               <div className="text-2xl font-bold text-slate-800">฿{fmt(selectedTotal)}</div>
             </div>
+
+            {/* Tax Invoice Toggle */}
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="selHasTaxInvoice"
+                checked={hasTaxInvoice}
+                onChange={(e) => setHasTaxInvoice(e.target.checked)}
+                className="rounded border-amber-400"
+              />
+              <label htmlFor="selHasTaxInvoice" className="text-sm font-medium text-amber-800">
+                Tax Invoice / ใบเสร็จรับเงิน
+              </label>
+              <span className="text-xs text-amber-600 ml-auto">
+                {hasTaxInvoice ? 'PAID (P)' : 'CASH (C)'}
+              </span>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Payment Method *</label>
               <Select value={selPayForm.tran_code} onValueChange={(v) => syncPaymentMethod(v, selPayForm, setSelPayForm)}>
