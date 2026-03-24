@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, User, Phone, Mail, Calendar, Clock, MapPin, FileText, Loader2, CreditCard, Edit } from 'lucide-react'
+import { Search, User, Phone, Mail, Calendar, Clock, MapPin, FileText, Loader2, CreditCard, Edit, Star, Home, Repeat } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Separator } from '@/components/ui/separator'
 import type { Guest, Reservation } from '@/lib/types/database'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -14,6 +15,15 @@ interface GuestProfileProps {
   guestId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  onGuestUpdate?: (guest: Guest) => void
+}
+
+interface GuestSummary {
+  is_return: boolean
+  total_visits: number
+  total_room_nights: number
+  first_stay: string | null
+  last_stay: string | null
 }
 
 interface GuestVisit {
@@ -22,12 +32,15 @@ interface GuestVisit {
   check_in_date: string
   check_out_date: string
   status: string
-  room: { room_number: string }
+  room_number: string
+  room_type_name: string
   rate: number
+  total_charges: number
 }
 
-export function GuestProfile({ guestId, open, onOpenChange }: GuestProfileProps) {
+export function GuestProfile({ guestId, open, onOpenChange, onGuestUpdate }: GuestProfileProps) {
   const [guest, setGuest] = useState<Guest | null>(null)
+  const [summary, setSummary] = useState<GuestSummary | null>(null)
   const [visits, setVisits] = useState<GuestVisit[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -41,28 +54,24 @@ export function GuestProfile({ guestId, open, onOpenChange }: GuestProfileProps)
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
 
-      // Fetch guest
-      const { data: guestData } = await supabase
-        .from('guests')
-        .select('*')
-        .eq('id', guestId)
-        .single()
-      setGuest(guestData)
+      const [guestRes, summaryRes, historyRes] = await Promise.all([
+        supabase.from('guests').select('*').eq('id', guestId).single(),
+        supabase.rpc('is_return_guest', { p_guest_id: guestId }),
+        supabase.rpc('get_guest_visit_history', { p_guest_id: guestId })
+      ])
 
-      // Fetch visit history
-      const { data: visitData } = await supabase
-        .from('reservations')
-        .select('id, reservation_number, check_in_date, check_out_date, status, rate, room_number')
-        .eq('guest_id', guestId)
-        .order('check_in_date', { ascending: false })
-        .limit(20)
+      setGuest(guestRes.data)
       
-      // Transform data to match GuestVisit type
-      const transformedVisits = (visitData || []).map((v: any) => ({
-        ...v,
-        room: { room_number: v.room_number || '' }
-      }))
-      setVisits(transformedVisits)
+      if (summaryRes.data && summaryRes.data.length > 0) {
+        setSummary(summaryRes.data[0])
+      } else {
+        setSummary({ is_return: false, total_visits: 0, total_room_nights: 0, first_stay: null, last_stay: null })
+      }
+
+      if (historyRes.data) {
+        setVisits(historyRes.data)
+      }
+
       setLoading(false)
     }
 
@@ -73,7 +82,7 @@ export function GuestProfile({ guestId, open, onOpenChange }: GuestProfileProps)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <User className="w-5 h-5" />
@@ -86,9 +95,31 @@ export function GuestProfile({ guestId, open, onOpenChange }: GuestProfileProps)
             <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           </div>
         ) : guest ? (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Return Guest Banner */}
+            {summary?.is_return && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Repeat className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold text-amber-800">RETURNED GUEST</div>
+                  <div className="text-sm text-amber-600">
+                    {summary.total_visits} visits • {summary.total_room_nights} room nights
+                    {summary.first_stay && ` • First stay: ${new Date(summary.first_stay).toLocaleDateString('en-GB')}`}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200">
+                    <Star className="w-3 h-3 mr-1" />
+                    VIP Return
+                  </Badge>
+                </div>
+              </div>
+            )}
+
             {/* Guest Info Card */}
-            <Card className="mb-4">
+            <Card>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
@@ -99,6 +130,14 @@ export function GuestProfile({ guestId, open, onOpenChange }: GuestProfileProps)
                       <h2 className="text-xl font-bold text-slate-800">
                         {guest.first_name} {guest.last_name}
                       </h2>
+                      <div className="mt-1 flex items-center gap-2">
+                        {guest.vip && <Badge className="bg-amber-100 text-amber-700">VIP</Badge>}
+                        {guest.birthday && (
+                          <span className="text-xs text-slate-500">
+                            Birthday: {new Date(guest.birthday).toLocaleDateString('en-GB')}
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-3 space-y-1 text-sm text-slate-600">
                         {guest.phone && (
                           <div className="flex items-center gap-2">
@@ -135,59 +174,156 @@ export function GuestProfile({ guestId, open, onOpenChange }: GuestProfileProps)
               </CardContent>
             </Card>
 
+            {/* Stats Summary for Return Guests */}
+            {summary?.is_return && (
+              <div className="grid grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
+                  <CardContent className="p-4 text-center">
+                    <Repeat className="w-6 h-6 mx-auto text-blue-500 mb-2" />
+                    <div className="text-2xl font-bold text-blue-700">{summary.total_visits}</div>
+                    <div className="text-xs text-blue-600">Total Visits</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
+                  <CardContent className="p-4 text-center">
+                    <Home className="w-6 h-6 mx-auto text-green-500 mb-2" />
+                    <div className="text-2xl font-bold text-green-700">{summary.total_room_nights}</div>
+                    <div className="text-xs text-green-600">Room Nights</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
+                  <CardContent className="p-4 text-center">
+                    <Calendar className="w-6 h-6 mx-auto text-purple-500 mb-2" />
+                    <div className="text-lg font-bold text-purple-700">
+                      {summary.first_stay ? new Date(summary.first_stay).toLocaleDateString('en-GB') : '-'}
+                    </div>
+                    <div className="text-xs text-purple-600">First Stay</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-orange-50 to-amber-50">
+                  <CardContent className="p-4 text-center">
+                    <Clock className="w-6 h-6 mx-auto text-orange-500 mb-2" />
+                    <div className="text-lg font-bold text-orange-700">
+                      {summary.last_stay ? new Date(summary.last_stay).toLocaleDateString('en-GB') : '-'}
+                    </div>
+                    <div className="text-xs text-orange-600">Last Stay</div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {/* Visit History */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Visit History ({visits.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Tabs defaultValue="history" className="flex-1">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="history">Visit History</TabsTrigger>
+                <TabsTrigger value="details">Guest Details</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="history" className="space-y-4 mt-4">
                 {visits.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400">
-                    No visit history found
-                  </div>
+                  <Card>
+                    <CardContent className="p-8 text-center text-slate-400">
+                      No visit history found
+                    </CardContent>
+                  </Card>
                 ) : (
                   <div className="space-y-3">
                     {visits.map((visit) => (
-                      <div
-                        key={visit.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-white border flex items-center justify-center">
-                            <Calendar className="w-5 h-5 text-slate-400" />
-                          </div>
-                          <div>
-                            <div className="font-medium text-slate-800">
-                              Room {visit.room?.room_number || '-'}
+                      <Card key={visit.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-lg bg-slate-100 border flex items-center justify-center">
+                                <Calendar className="w-5 h-5 text-slate-500" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-slate-800">
+                                  Room {visit.room_number || '-'} 
+                                  <span className="text-slate-500 text-sm ml-2">
+                                    ({visit.room_type_name || 'N/A'})
+                                  </span>
+                                </div>
+                                <div className="text-sm text-slate-500">
+                                  {visit.check_in_date && new Date(visit.check_in_date).toLocaleDateString('en-GB')}
+                                  {visit.check_out_date && ` → ${new Date(visit.check_out_date).toLocaleDateString('en-GB')}`}
+                                </div>
+                                <div className="text-xs text-slate-400 mt-1">
+                                  Res: {visit.reservation_number}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-sm text-slate-500">
-                              {visit.check_in_date && new Date(visit.check_in_date).toLocaleDateString('en-GB')} 
-                              {' → '}
-                              {visit.check_out_date && new Date(visit.check_out_date).toLocaleDateString('en-GB')}
+                            <div className="text-right">
+                              <Badge className={
+                                visit.status === 'checked_out' ? 'bg-emerald-100 text-emerald-700' :
+                                visit.status === 'checked_in' ? 'bg-blue-100 text-blue-700' :
+                                visit.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                'bg-amber-100 text-amber-700'
+                              }>
+                                {visit.status?.replace('_', ' ')}
+                              </Badge>
+                              <div className="text-sm font-medium text-slate-600 mt-1">
+                                ฿{Number(visit.rate || 0).toLocaleString()}/night
+                              </div>
+                              {visit.total_charges > 0 && (
+                                <div className="text-xs text-slate-400">
+                                  Total: ฿{Number(visit.total_charges).toLocaleString()}
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <Badge className={
-                            visit.status === 'checked_in' ? 'bg-emerald-100 text-emerald-700' :
-                            visit.status === 'checked_out' ? 'bg-slate-100 text-slate-600' :
-                            'bg-amber-100 text-amber-700'
-                          }>
-                            {visit.status?.replace('_', ' ')}
-                          </Badge>
-                          <div className="text-sm font-medium text-slate-600 mt-1">
-                            ฿{Number(visit.rate || 0).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </TabsContent>
+
+              <TabsContent value="details" className="mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Additional Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {guest.id_type && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">ID Type</span>
+                        <span className="font-medium">{guest.id_type}</span>
+                      </div>
+                    )}
+                    {guest.id_number && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">ID Number</span>
+                        <span className="font-medium">{guest.id_number}</span>
+                      </div>
+                    )}
+                    {guest.company && (
+                      <>
+                        <Separator />
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Company</span>
+                          <span className="font-medium">{guest.company}</span>
+                        </div>
+                      </>
+                    )}
+                    {guest.tax_id && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Tax ID</span>
+                        <span className="font-medium">{guest.tax_id}</span>
+                      </div>
+                    )}
+                    {guest.remark && (
+                      <>
+                        <Separator />
+                        <div>
+                          <span className="text-slate-500">Remark</span>
+                          <p className="font-medium mt-1">{guest.remark}</p>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         ) : (
           <div className="text-center py-8 text-slate-400">

@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ArrowLeft, ArrowRight, Search, Plus, Loader2, Check, BedDouble, CalendarDays, User, CreditCard, Building2 } from 'lucide-react'
+import { ReturnGuestBadge } from '@/components/return-guest-badge'
 import { toast } from 'sonner'
 
 const STEPS = ['Dates & Room', 'Select Room', 'Guest Info', 'Confirm']
@@ -457,7 +458,10 @@ export default function NewBookingPage() {
                             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="font-semibold text-emerald-800">{selectedGuest.first_name} {selectedGuest.last_name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-semibold text-emerald-800">{selectedGuest.first_name} {selectedGuest.last_name}</p>
+                                            <ReturnGuestBadge guestId={selectedGuest.id} />
+                                        </div>
                                         <p className="text-sm text-emerald-600">{selectedGuest.email || selectedGuest.phone || 'No contact info'}</p>
                                     </div>
                                     <Button variant="outline" size="sm" onClick={() => setSelectedGuest(null)}>Change</Button>
