@@ -270,6 +270,13 @@ export interface Guest {
   passport_number: string;
   visa_type_id: string | null;
   address: string;
+  vip?: boolean;
+  birthday?: string | null;
+  id_type?: string | null;
+  id_number?: string | null;
+  company?: string | null;
+  tax_id?: string | null;
+  remark?: string | null;
   created_at: string;
   updated_at: string;
   // Joined

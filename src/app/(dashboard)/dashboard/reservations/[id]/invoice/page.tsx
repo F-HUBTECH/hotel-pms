@@ -9,7 +9,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
     // Fetch property info for hotel header
     const { data: property } = await supabase
         .from('properties')
-        .select('name, address, timezone')
+        .select('name, address, timezone, phone, tax_id, email')
         .eq('code', 'MAIN')
         .single()
 

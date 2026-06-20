@@ -46,7 +46,7 @@ export async function checkRight(
     .single();
 
   if (error || !data) return false;
-  return data[rightType] ?? false;
+  return (data as any)[rightType] ?? false;
 }
 
 // ─────────────────────────────────────────────

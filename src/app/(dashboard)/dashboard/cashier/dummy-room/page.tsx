@@ -314,7 +314,7 @@ export default function DummyRoomFolioPage() {
             .in('status', ['reserved', 'checked_in'])
             .order('check_in_date', { ascending: false });
         
-        setReservations(data || []);
+        setReservations((data as any) || []);
     };
 
     const selectReservationForTransfer = async (res: Reservation) => {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllUsersWithRights, FUNCTION_CODES, grantRight } from "@/lib/actions/user-rights";
+import { getAllUsersWithRights, grantRight } from "@/lib/actions/user-rights";
+import { FUNCTION_CODES } from "@/lib/constants/function-codes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
