@@ -348,7 +348,7 @@ export type ReservationUpdate = Partial<ReservationInsert>;
 
 // =============================================
 // Revenue Transaction Codes
-// (KFO: revenuetrancode — maps code → description, VAT, GL)
+// (revenuetrancode — maps code → description, VAT, GL)
 // =============================================
 export interface RevenueTransactionCode {
   id: string;
@@ -373,7 +373,7 @@ export interface RevenueTransactionCode {
 
 // =============================================
 // Billing Addresses
-// (KFO: Billaddress.pas — ที่อยู่ใบเสร็จ/ใบกำกับภาษี)
+// (Billaddress.pas — ที่อยู่ใบเสร็จ/ใบกำกับภาษี)
 // =============================================
 export interface BillingAddress {
   id: string;
@@ -401,7 +401,7 @@ export type BillingAddressUpdate = Partial<BillingAddressInsert>;
 
 // =============================================
 // Folio Setup (Billing Instructions)
-// (KFO: foliosetupdetail + foliosetupmaster)
+// (foliosetupdetail + foliosetupmaster)
 // =============================================
 export interface FolioSetup {
   id: string;
@@ -423,7 +423,7 @@ export type FolioSetupInsert = Omit<
 
 // =============================================
 // Folio Payments
-// (KFO: billtransaction with is_payment_code=true, stored separately)
+// (billtransaction with is_payment_code=true, stored separately)
 // =============================================
 export interface FolioPayment {
   id: string;
@@ -449,7 +449,7 @@ export interface FolioPayment {
 }
 
 // =============================================
-// Tax Invoices (KFO: TAX_INV, INV_NO — ใบกำกับภาษี)
+// Tax Invoices (TAX_INV, INV_NO — ใบกำกับภาษี)
 // =============================================
 export interface TaxInvoice {
   id: string;
@@ -477,7 +477,7 @@ export interface TaxInvoice {
 export interface Folio {
   id: string;
   reservation_id: string;
-  folio_seq: number; // 1-4 (KFO: Folio 1, 2, 3, 4)
+  folio_seq: number; // 1-4 (Folio 1, 2, 3, 4)
   folio_number: string | null;
   total_amount: number;
   paid_amount: number;
@@ -486,7 +486,7 @@ export interface Folio {
   discount: number;
   balance: number;
   status: FolioStatus;
-  // Lock (KFO: block/unblock folio)
+  // Lock (block/unblock folio)
   is_locked: boolean;
   locked_by: string | null;
   locked_at: string | null;
@@ -508,7 +508,7 @@ export interface Folio {
 export interface FolioItem {
   id: string;
   folio_id: string;
-  // Transaction code (KFO: TRAN_CODE)
+  // Transaction code (TRAN_CODE)
   tran_code: string | null;
   description: string;
   amount: number;
@@ -517,31 +517,31 @@ export interface FolioItem {
   quantity: number;
   unit_price: number;
   folio_group_id?: string | null;
-  // VAT / Service Charge breakdown (KFO: VAT_PER, VAT_AMT, SERV_PER, SERV_AMT)
+  // VAT / Service Charge breakdown (VAT_PER, VAT_AMT, SERV_PER, SERV_AMT)
   vat_type: VatType;
   vat_rate: number;
   vat_amount: number;
   service_rate: number;
   service_amount: number;
-  vatable_amount: number; // KFO: VATABLE
-  non_vat_amount: number; // KFO: NONVAT
-  // Payment/status flag (KFO: PAYF — I=item, P=paid, C=credit, W=void)
+  vatable_amount: number; // VATABLE
+  non_vat_amount: number; // NONVAT
+  // Payment/status flag (PAYF — I=item, P=paid, C=credit, W=void)
   payf: PayfFlag;
-  // Credit Note (KFO: CRNOTE)
+  // Credit Note (CRNOTE)
   credit_note_no: number;
   credit_note_ref: number;
   // Tax Invoice
   tax_inv_no: number;
-  // Reference / Remarks (KFO: REFERENCE, REMARK, PAYREMARK1/2/3)
+  // Reference / Remarks (REFERENCE, REMARK, PAYREMARK1/2/3)
   reference: string;
   remark: string;
   pay_remark1: string;
   pay_remark2: string;
   pay_remark3: string;
-  // Audit / Shift tracking (KFO: audituser, SHIFTCODE)
+  // Audit / Shift tracking (audituser, SHIFTCODE)
   shift_code: string;
   posted_by: string | null;
-  // Auto-post (KFO: AUTOPOST_DATE — night audit)
+  // Auto-post (AUTOPOST_DATE — night audit)
   auto_post_date: string | null;
   // Advance payment flag
   is_advance_payment: boolean;

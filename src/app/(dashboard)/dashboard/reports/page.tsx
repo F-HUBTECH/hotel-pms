@@ -79,7 +79,7 @@ export default function ReportsDashboard() {
 
             <Card className="bg-slate-50 border-dashed border-2">
                 <CardContent className="p-8 text-center text-slate-500">
-                    <p>More reports from the legacy KFO system will be migrated in future updates.</p>
+                    <p>More reports will be added in future updates.</p>
                 </CardContent>
             </Card>
         </div>

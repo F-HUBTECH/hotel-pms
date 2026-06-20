@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import { navigationGroups } from '@/lib/constants/navigation'
 import { Hotel, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { useState, useEffect } from 'react'
 import { type UserRole } from '@/lib/types/database'
@@ -44,19 +43,22 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                'h-screen sticky top-0 bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300 z-30',
-                collapsed ? 'w-[68px]' : 'w-[260px]'
+                'h-screen sticky top-0 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-out z-30',
+                collapsed ? 'w-[68px]' : 'w-[256px]'
             )}
         >
-            {/* Logo */}
-            <div className="h-16 flex items-center gap-3 px-4 border-b border-slate-800">
-                <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center shrink-0">
-                    <Hotel className="w-5 h-5 text-white" />
+            {/* Brand mark */}
+            <div className={cn(
+                'flex items-center gap-3 border-b border-sidebar-border transition-all duration-300 ease-out',
+                collapsed ? 'h-16 px-3 justify-center' : 'h-16 px-4'
+            )}>
+                <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 ring-1 ring-primary/30 shadow-sm shadow-primary/15">
+                    <Hotel className="w-5 h-5 text-primary-foreground" strokeWidth={1.75} />
                 </div>
                 {!collapsed && (
-                    <div className="overflow-hidden">
-                        <h1 className="text-sm font-bold text-white truncate">Hotel PMS</h1>
-                        <p className="text-[10px] text-slate-500 truncate">Property Management</p>
+                    <div className="overflow-hidden min-w-0">
+                        <h1 className="text-sm font-semibold text-sidebar-foreground tracking-tight truncate">Hotel PMS</h1>
+                        <p className="text-[10px] text-sidebar-foreground/40 tracking-wide truncate mt-0.5">Property Management</p>
                     </div>
                 )}
             </div>
@@ -65,23 +67,24 @@ export function Sidebar() {
             <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin">
                 {navigationGroups
                     .filter((group) => {
-                        // Filter out entire groups if the user role doesn't match
-                        if (!group.roles) return true // available to all
-                        if (!userRole) return false // waiting on fetch or unauthorized
+                        if (!group.roles) return true
+                        if (!userRole) return false
                         return group.roles.includes(userRole)
                     })
                     .map((group) => (
                         <div key={group.title}>
-                            {!collapsed && (
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2 px-3">
+                            {!collapsed ? (
+                                <p className="text-[11px] font-medium uppercase tracking-widest text-sidebar-foreground/35 mb-2.5 px-3 select-none">
                                     {group.title}
                                 </p>
+                            ) : (
+                                <div className="px-1.5 mb-2">
+                                    <div className="h-px bg-sidebar-border" />
+                                </div>
                             )}
-                            {collapsed && <Separator className="mb-2 bg-slate-800" />}
                             <div className="space-y-0.5">
                                 {group.items
                                     .filter((item) => {
-                                        // Filter out precise items if the user role doesn't match
                                         if (!item.roles) return true
                                         if (!userRole) return false
                                         return item.roles.includes(userRole)
@@ -94,15 +97,23 @@ export function Sidebar() {
                                                 key={item.href}
                                                 href={item.href}
                                                 className={cn(
-                                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150',
+                                                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ease-out',
                                                     isActive
-                                                        ? 'bg-indigo-500/10 text-indigo-400 font-medium'
-                                                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                                                        ? 'bg-primary/12 text-sidebar-foreground font-medium ring-1 ring-primary/20'
+                                                        : 'text-sidebar-foreground/50 hover:text-sidebar-foreground/85 hover:bg-white/[0.04]'
                                                 )}
                                                 title={collapsed ? item.title : undefined}
                                             >
-                                                <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-indigo-400')} />
-                                                {!collapsed && <span className="truncate">{item.title}</span>}
+                                                <Icon
+                                                    className={cn(
+                                                        'w-4 h-4 shrink-0 transition-colors duration-200 ease-out',
+                                                        isActive ? 'text-primary' : 'text-sidebar-foreground/35'
+                                                    )}
+                                                    strokeWidth={isActive ? 2 : 1.75}
+                                                />
+                                                {!collapsed && (
+                                                    <span className="truncate">{item.title}</span>
+                                                )}
                                             </Link>
                                         )
                                     })}
@@ -112,23 +123,29 @@ export function Sidebar() {
             </nav>
 
             {/* Footer */}
-            <div className="p-3 border-t border-slate-800 space-y-2">
+            <div className={cn(
+                'border-t border-sidebar-border transition-all duration-300 ease-out',
+                collapsed ? 'p-2 space-y-1.5' : 'p-3 space-y-1.5'
+            )}>
                 <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleLogout}
-                    className="w-full justify-start text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                    className={cn(
+                        'w-full justify-start text-sidebar-foreground/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 ease-out',
+                        collapsed && 'justify-center px-0'
+                    )}
                 >
-                    <LogOut className="w-4 h-4 shrink-0" />
+                    <LogOut className="w-4 h-4 shrink-0" strokeWidth={1.75} />
                     {!collapsed && <span className="ml-3">Sign Out</span>}
                 </Button>
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setCollapsed(!collapsed)}
-                    className="w-full text-slate-500 hover:text-white hover:bg-slate-800"
+                    className="w-full text-sidebar-foreground/35 hover:text-sidebar-foreground/70 hover:bg-white/[0.04] transition-all duration-200 ease-out"
                 >
-                    {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                    {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
                 </Button>
             </div>
         </aside>

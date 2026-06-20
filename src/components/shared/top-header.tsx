@@ -27,22 +27,22 @@ export async function TopHeader() {
         .slice(0, 2)
 
     return (
-        <header className="h-16 border-b border-slate-200 bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-20">
+        <header className="h-16 border-b border-border bg-background/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-20">
             <div>
-                <h2 className="text-sm font-medium text-slate-400">Welcome back</h2>
-                <p className="text-base font-semibold text-slate-900">
+                <p className="text-xs text-muted-foreground font-medium tracking-wide">Welcome back</p>
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
                     {profile?.full_name || user?.email || 'User'}
-                </p>
+                </h2>
             </div>
             <div className="flex items-center gap-3">
                 <Badge
                     variant="secondary"
-                    className="bg-indigo-50 text-indigo-600 border-indigo-100 font-medium text-xs"
+                    className="bg-primary/10 text-primary border-primary/15 font-medium text-xs px-2.5 py-0.5"
                 >
                     {ROLES[role]?.label || 'Staff'}
                 </Badge>
-                <Avatar className="h-9 w-9 bg-gradient-to-br from-indigo-500 to-violet-600">
-                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-xs font-bold">
+                <Avatar className="h-9 w-9 ring-2 ring-primary/15 ring-offset-1 ring-offset-background">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
                         {initials}
                     </AvatarFallback>
                 </Avatar>

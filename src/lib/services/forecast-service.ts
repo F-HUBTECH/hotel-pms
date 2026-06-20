@@ -11,6 +11,21 @@ export interface ForecastSummary {
     revpar: number
 }
 
+/** Calculate occupancy percentage with zero-division guard */
+export function calculateOccupancyPercentage(expectedOccupancy: number, totalRooms: number): number {
+    return totalRooms > 0 ? Math.round((expectedOccupancy / totalRooms) * 100) : 0
+}
+
+/** Calculate Average Daily Rate with zero-division guard */
+export function calculateADR(expectedRevenue: number, expectedOccupancy: number): number {
+    return expectedOccupancy > 0 ? Math.round(expectedRevenue / expectedOccupancy) : 0
+}
+
+/** Calculate Revenue Per Available Room with zero-division guard */
+export function calculateRevPAR(expectedRevenue: number, totalRooms: number): number {
+    return totalRooms > 0 ? Math.round(expectedRevenue / totalRooms) : 0
+}
+
 export class ForecastService {
     /**
      * Get the forecast for a specific property over a number of days.
@@ -33,17 +48,9 @@ export class ForecastService {
 
             // Map and calculate derived KPI metrics
             const forecastData: ForecastSummary[] = (data || []).map((row: any) => {
-                const occ = row.total_rooms > 0
-                    ? Math.round((row.expected_occupancy / row.total_rooms) * 100)
-                    : 0
-
-                const adr = row.expected_occupancy > 0
-                    ? Math.round(row.expected_revenue / row.expected_occupancy)
-                    : 0
-
-                const revpar = row.total_rooms > 0
-                    ? Math.round(row.expected_revenue / row.total_rooms)
-                    : 0
+                const occ = calculateOccupancyPercentage(row.expected_occupancy, row.total_rooms)
+                const adr = calculateADR(row.expected_revenue, row.expected_occupancy)
+                const revpar = calculateRevPAR(row.expected_revenue, row.total_rooms)
 
                 return {
                     property_id: row.property_id,

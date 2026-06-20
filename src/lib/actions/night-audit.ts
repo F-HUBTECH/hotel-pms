@@ -93,7 +93,7 @@ export interface NightAuditLog {
 
 // ─────────────────────────────────────────────
 // 1. POST ROOM CHARGES (Night Audit - V9)
-//    KFO: Auto-post room charges at midnight
+//    Auto-post room charges at midnight
 // ─────────────────────────────────────────────
 export async function nightAuditPostRoomCharges(
   auditDate: string = new Date().toISOString().split("T")[0],
@@ -122,7 +122,7 @@ export async function nightAuditPostRoomCharges(
 
 // ─────────────────────────────────────────────
 // 2. CLOSE SHIFT
-//    KFO: Shift closing with cash count
+//    Shift closing with cash count
 // ─────────────────────────────────────────────
 export async function closeShift(formData: unknown): Promise<ActionResponse<any>> {
   const parsed = closeShiftSchema.safeParse(formData);
@@ -156,7 +156,7 @@ export async function closeShift(formData: unknown): Promise<ActionResponse<any>
 
 // ─────────────────────────────────────────────
 // 3. GENERATE DAILY RECONCILIATION REPORT
-//    KFO: Daily revenue summary
+//    Daily revenue summary
 // ─────────────────────────────────────────────
 export async function generateDailyReconciliationReport(
   reportDate: string = new Date().toISOString().split("T")[0]

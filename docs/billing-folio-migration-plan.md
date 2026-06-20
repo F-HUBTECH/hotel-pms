@@ -1,11 +1,11 @@
 # Hotel PMS Billing Folio Migration Plan
-## KFO Legacy → Next.js Implementation
+## hotel-pms Legacy → Next.js Implementation
 
 ---
 
 ## Executive Summary
 
-The hotel-pms system has **comprehensive billing/folio functionality** that closely mirrors the legacy KFO Delphi system. The core billing operations are **production-ready** with full KFO parity for essential hotel operations.
+The hotel-pms system has **comprehensive billing/folio functionality** that closely mirrors the legacy hotel-pms Delphi system. The core billing operations are **production-ready** with full hotel-pms parity for essential hotel operations.
 
 **Current Implementation Status:**
 - ✅ Database Schema: 100% Complete (V8 Billing Folio)
@@ -18,7 +18,7 @@ The hotel-pms system has **comprehensive billing/folio functionality** that clos
 
 ## 1. Feature Comparison Matrix
 
-| Feature | KFO (Delphi) | Hotel-PMS | Status |
+| Feature | hotel-pms (Delphi) | Hotel-PMS | Status |
 |---------|---------------|-----------|--------|
 | **Core Database** | | | |
 | Folios (1-4 per reservation) | ✅ | ✅ | ✅ Complete |
@@ -66,11 +66,11 @@ The hotel-pms system has **comprehensive billing/folio functionality** that clos
 ## 2. Implementation Plan
 
 ### Phase 1: Validation & Testing (Priority 1)
-**Goal:** Ensure current implementation matches KFO behavior
+**Goal:** Ensure current implementation matches hotel-pms behavior
 
 1. **VAT/Service Charge Validation**
-   - Verify Type A (VAT inclusive) calculation matches KFO
-   - Verify Type B (VAT exclusive) calculation matches KFO
+   - Verify Type A (VAT inclusive) calculation matches hotel-pms
+   - Verify Type B (VAT exclusive) calculation matches hotel-pms
    - Test edge cases (zero rates, negative amounts)
    - Verify rounding behavior
 
@@ -89,7 +89,7 @@ The hotel-pms system has **comprehensive billing/folio functionality** that clos
    - Verify audit trail completeness
 
 ### Phase 2: Missing Features (Priority 2)
-**Goal:** Complete missing KFO functionality
+**Goal:** Complete missing hotel-pms functionality
 
 1. **Night Audit Automation**
    - Create cron job or scheduled function
@@ -159,7 +159,7 @@ VAT = (1,000 + 100) × 7 / 100 = 77 THB
 
 ### PAYF Flag Mapping
 
-| PAYF Value | KFO Meaning | Hotel-PMS UI Badge |
+| PAYF Value | hotel-pms Meaning | Hotel-PMS UI Badge |
 |-----------|--------------|-------------------|
 | `''` or `'I'` | Normal Item | CHRG (Gray) |
 | `'P'` | Paid Item | PAID (Blue) |
@@ -242,22 +242,22 @@ VAT = (1,000 + 100) × 7 / 100 = 77 THB
 ## 5. Rollout Strategy
 
 ### Stage 1: Parallel Running (2-4 weeks)
-- Keep KFO system operational
+- Keep hotel-pms system operational
 - Train staff on hotel-pms
 - Compare transaction results between systems
 - Identify and fix discrepancies
 
 ### Stage 2: Selective Rollout (2 weeks)
 - Enable hotel-pms for new reservations only
-- Existing reservations stay on KFO
+- Existing reservations stay on hotel-pms
 - Monitor for issues
 - Gather user feedback
 
 ### Stage 3: Full Migration (1 week)
 - Migrate active reservations to hotel-pms
-- Complete outstanding transactions in KFO
+- Complete outstanding transactions in hotel-pms
 - Final data reconciliation
-- Decommission KFO system
+- Decommission hotel-pms system
 
 ### Stage 4: Post-Migration Support (2-4 weeks)
 - Monitor system closely
@@ -269,8 +269,8 @@ VAT = (1,000 + 100) × 7 / 100 = 77 THB
 
 ## 6. Success Criteria
 
-- ✅ All KFO billing operations can be performed in hotel-pms
-- ✅ VAT calculations match KFO exactly
+- ✅ All hotel-pms billing operations can be performed in hotel-pms
+- ✅ VAT calculations match hotel-pms exactly
 - ✅ Folio totals and balances are accurate
 - ✅ Audit trail is complete and traceable
 - ✅ Tax invoices are generated correctly
@@ -285,7 +285,7 @@ VAT = (1,000 + 100) × 7 / 100 = 77 THB
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| VAT calculation differences | High | Side-by-side testing with real KFO data |
+| VAT calculation differences | High | Side-by-side testing with real hotel-pms data |
 | Data loss during migration | Critical | Full backup before migration, incremental migration |
 | Staff resistance to change | Medium | Comprehensive training, gradual rollout |
 | Performance issues with large folios | Medium | Indexes, caching, pagination |
@@ -299,7 +299,7 @@ VAT = (1,000 + 100) × 7 / 100 = 77 THB
 ### Immediate Actions (This Week)
 1. Deploy schema_v8_billing_folio.sql to production
 2. Create test reservations with various scenarios
-3. Validate VAT calculations against KFO
+3. Validate VAT calculations against hotel-pms
 4. Test all cashier operations
 5. Identify any discrepancies
 
@@ -321,13 +321,13 @@ VAT = (1,000 + 100) × 7 / 100 = 77 THB
 
 **Conclusion:**
 
-The hotel-pms system has a **solid foundation** with comprehensive billing/folio functionality that closely matches the legacy KFO system. The core operations are **production-ready** for basic hotel billing. The missing features (night audit, advanced reports, payment gateway) can be implemented incrementally without disrupting core operations.
+The hotel-pms system has a **solid foundation** with comprehensive billing/folio functionality that closely matches the legacy hotel-pms system. The core operations are **production-ready** for basic hotel billing. The missing features (night audit, advanced reports, payment gateway) can be implemented incrementally without disrupting core operations.
 
 **Recommended Timeline:**
 - Week 1-2: Validation and testing
 - Week 3-4: Phase 1 missing features (night audit, reports)
 - Week 5-6: Phase 2 UI enhancements and training
-- Week 7-8: Parallel running with KFO
+- Week 7-8: Parallel running with hotel-pms
 - Week 9-10: Selective rollout
 - Week 11-12: Full migration
 

@@ -139,7 +139,7 @@ export const validateRateChange = (originalRate: number, newRate: number): {
   const change = newRate - originalRate
   const changePercent = (change / originalRate) * 100
 
-  // KFO rule: Changes over 50% require manager approval
+  // Business rule: Changes over 50% require manager approval
   if (Math.abs(changePercent) > 50) {
     return {
       valid: false,
@@ -172,20 +172,21 @@ export const checkRoomStatusOverlap = (
     statusType: string
     fromDate: string
     toDate: string
-  }>
+  }>,
+  excludeId?: string,
 ): { overlaps: boolean; conflictingId?: string } => {
   for (const status of existingStatuses) {
     if (status.roomId !== roomId) continue
     if (status.statusType !== statusType) continue
+
+    // Skip the record being updated
+    if (excludeId && status.id === excludeId) continue
 
     const existingFrom = new Date(status.fromDate)
     const existingTo = new Date(status.toDate)
 
     // Check for overlap
     if (fromDate <= existingTo && toDate >= existingFrom) {
-      // Exclude the record being updated
-      if (status.id && status.id === status.id) continue
-
       return {
         overlaps: true,
         conflictingId: status.id,

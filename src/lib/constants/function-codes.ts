@@ -1,4 +1,4 @@
-// Function codes (based on KFO)
+// Function codes for hotel operations
 // These are constants and should be in a separate non-server file
 
 export const FUNCTION_CODES = {

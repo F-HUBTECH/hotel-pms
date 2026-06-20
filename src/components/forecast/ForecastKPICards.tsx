@@ -17,7 +17,7 @@ export interface ForecastKPIData {
   available_rooms: number
   occupied_rooms: number
   occupancy_percentage: number
-  // KFO Fields - Room Status
+  // Hotel PMS Fields - Room Status
   stayover_rooms: number
   arrival_rooms: number
   departure_rooms: number
@@ -89,7 +89,7 @@ export function ForecastKPICards({
     const totalRooms = data[0]?.total_rooms || 0
     const occupiedRooms = data.reduce((sum, d) => sum + d.occupied_rooms, 0) / data.length
     
-    // KFO Fields
+    // Hotel PMS Fields
     const stayoverRooms = data.reduce((sum, d) => sum + (d.stayover_rooms || 0), 0)
     const arrivalRooms = data.reduce((sum, d) => sum + (d.arrival_rooms || 0), 0)
     const departureRooms = data.reduce((sum, d) => sum + (d.departure_rooms || 0), 0)
@@ -244,111 +244,87 @@ export function ForecastKPICards({
 
   return (
     <div className="space-y-6">
-      {/* KFO Core Metrics - Stayover, Arrivals, Departures */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Stayover */}
-        <KPICard
-          title="Stay Over"
-          value={aggregate.stayoverRooms}
-          icon={Hotel}
-          description="Rooms staying from previous day"
-        />
+      {/* Hero row: Revenue + Occupancy — the two numbers that matter most */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="bg-indigo-600 text-white border-none shadow-md">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-indigo-100">Total Revenue</p>
+            </div>
+            <div className="text-3xl font-bold tracking-tight">{formatCurrency(aggregate.totalRevenue)}</div>
+            {comparisonData && (
+              <div className="mt-2">
+                <TrendIndicator value={comparison.revenueChange} format="currency" />
+              </div>
+            )}
+            <p className="text-xs text-indigo-200 mt-2">Projected total for period</p>
+          </CardContent>
+        </Card>
 
-        {/* Arrivals */}
-        <KPICard
-          title="Arrivals"
-          value={aggregate.arrivalRooms}
-          icon={LogIn}
-          description="Expected arrivals today"
-        />
-
-        {/* Departures */}
-        <KPICard
-          title="Departures"
-          value={aggregate.departureRooms}
-          icon={LogOut}
-          description="Expected departures today"
-        />
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                <UserCheck className="h-5 w-5 text-indigo-600" />
+              </div>
+              <p className="text-sm font-medium text-slate-600">Occupancy</p>
+            </div>
+            <div className="flex items-baseline gap-3">
+              <div className="text-3xl font-bold tracking-tight text-slate-900">{formatPercent(aggregate.avgOccupancy)}</div>
+              <div className="text-sm text-slate-500">{aggregate.occupiedRooms.toFixed(0)} / {aggregate.totalRooms} rooms</div>
+            </div>
+            {comparisonData && (
+              <div className="mt-2">
+                <TrendIndicator value={comparison.occupancyChange} format="percent" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Revenue & Occupancy Metrics */}
+      {/* Primary row: ADR, RevPAR, Stay Over, Arrivals */}
       <div className="grid gap-4 md:grid-cols-4">
-        {/* Total Revenue */}
-        <KPICard
-          title="Total Revenue"
-          value={formatCurrency(aggregate.totalRevenue)}
-          icon={DollarSign}
-          change={comparisonData ? comparison.revenueChange : undefined}
-          description="Projected total for period"
-        />
-
-        {/* Average Occupancy */}
-        <KPICard
-          title="Occupancy"
-          value={formatPercent(aggregate.avgOccupancy)}
-          icon={UserCheck}
-          change={comparisonData ? comparison.occupancyChange : undefined}
-          format="percent"
-          description={`${aggregate.occupiedRooms.toFixed(0)} / ${aggregate.totalRooms} rooms`}
-        />
-
-        {/* ADR (Average Daily Rate) */}
-        <KPICard
-          title="ADR"
-          value={formatCurrency(aggregate.adr)}
-          icon={Bed}
-          change={comparisonData ? comparison.adrChange : undefined}
-          description="Average Daily Rate"
-        />
-
-        {/* RevPAR */}
-        <KPICard
-          title="RevPAR"
-          value={formatCurrency(aggregate.revpar)}
-          icon={TrendingUp}
-          change={comparisonData ? comparison.revparChange : undefined}
-          description="Revenue Per Available Room"
-        />
+        <KPICard title="ADR" value={formatCurrency(aggregate.adr)} icon={Bed} change={comparisonData ? comparison.adrChange : undefined} description="Average Daily Rate" />
+        <KPICard title="RevPAR" value={formatCurrency(aggregate.revpar)} icon={TrendingUp} change={comparisonData ? comparison.revparChange : undefined} description="Revenue Per Available Room" />
+        <KPICard title="Stay Over" value={aggregate.stayoverRooms} icon={Hotel} description="From previous day" />
+        <KPICard title="Arrivals" value={aggregate.arrivalRooms} icon={LogIn} description="Expected today" />
       </div>
 
-      {/* Room Status Breakdown */}
-      <div className="grid gap-4 md:grid-cols-6">
-        <KPICard
-          title="Total Rooms"
-          value={aggregate.totalRooms}
-          icon={Hotel}
-          description="Total inventory"
-        />
-        <KPICard
-          title="Comp."
-          value={aggregate.compRooms}
-          icon={Users}
-          description="Complimentary"
-        />
-        <KPICard
-          title="H/U"
-          value={aggregate.huRooms}
-          icon={Hotel}
-          description="House Use"
-        />
-        <KPICard
-          title="O/O"
-          value={aggregate.ooRooms}
-          icon={Bed}
-          description="Out of Order"
-        />
-        <KPICard
-          title="O/I"
-          value={aggregate.oiRooms}
-          icon={Bed}
-          description="Out of Inventory"
-        />
-        <KPICard
-          title="Day Use"
-          value={aggregate.dayUseRooms}
-          icon={Calendar}
-          description="Day use rooms"
-        />
+      {/* Compact row: smaller operational metrics */}
+      <div className="flex flex-wrap gap-3 items-center px-4 py-3 bg-slate-50 rounded-lg border border-slate-200">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-2">Operations</span>
+        <div className="flex items-center gap-1.5 text-sm">
+          <LogOut className="w-3.5 h-3.5 text-amber-500" />
+          <span className="font-semibold text-slate-800">{aggregate.departureRooms}</span>
+          <span className="text-slate-500 text-xs">Departures</span>
+        </div>
+        <div className="w-px h-4 bg-slate-200 mx-1"></div>
+        <div className="flex items-center gap-1.5 text-sm">
+          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+          <span className="font-semibold text-slate-800">{aggregate.dayUseRooms}</span>
+          <span className="text-slate-500 text-xs">Day Use</span>
+        </div>
+        <div className="w-px h-4 bg-slate-200 mx-1"></div>
+        <div className="flex items-center gap-1.5 text-sm">
+          <Users className="w-3.5 h-3.5 text-indigo-500" />
+          <span className="font-semibold text-slate-800">{aggregate.compRooms}</span>
+          <span className="text-slate-500 text-xs">Comp</span>
+        </div>
+        <div className="w-px h-4 bg-slate-200 mx-1"></div>
+        <div className="flex items-center gap-1.5 text-sm">
+          <Hotel className="w-3.5 h-3.5 text-slate-400" />
+          <span className="font-semibold text-slate-800">{aggregate.huRooms}</span>
+          <span className="text-slate-500 text-xs">HU</span>
+        </div>
+        <div className="w-px h-4 bg-slate-200 mx-1"></div>
+        <div className="flex items-center gap-1.5 text-sm">
+          <Bed className="w-3.5 h-3.5 text-rose-400" />
+          <span className="font-semibold text-slate-800">{aggregate.ooRooms + aggregate.oiRooms}</span>
+          <span className="text-slate-500 text-xs">OO/OI</span>
+        </div>
       </div>
     </div>
   )

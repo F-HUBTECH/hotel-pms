@@ -2,7 +2,7 @@
 
 /**
  * Hotel PMS - Forecast Server Actions (Updated)
- * KFO Parity - Room-by-Room Forecast Grid
+ * Full-feature room-by-room forecast grid
  * Matches RPC functions in forecast_functions.sql
  */
 

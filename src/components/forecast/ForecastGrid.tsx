@@ -3,7 +3,7 @@
 /**
  * Hotel PMS - Forecast Grid Component
  * Phase 3: Frontend Implementation
- * Room-by-room forecast grid with KFO parity
+ * Room-by-room forecast grid with Hotel PMS parity
  */
 
 import React, { useState, useEffect, useMemo } from 'react'

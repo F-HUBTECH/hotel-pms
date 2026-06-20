@@ -3,7 +3,7 @@
 /**
  * Hotel PMS - Forecast Grid Page
  * Phase 3: Frontend Implementation
- * Room-by-room forecast grid with full KFO parity
+ * Room-by-room forecast grid with full Hotel PMS parity
  */
 
 import React, { useState, useEffect } from 'react'
@@ -172,7 +172,7 @@ export default function ForecastGridPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Forecast Grid</h1>
           <p className="text-muted-foreground">
-            Room-by-room forecast with KFO parity
+            Room-by-room forecast with Hotel PMS parity
           </p>
         </div>
         <div className="flex gap-2">

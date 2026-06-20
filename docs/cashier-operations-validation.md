@@ -1,11 +1,11 @@
 # Core Cashier Operations Validation Guide
-## KFO Legacy → Hotel-PMS Implementation Verification
+## hotel-pms Legacy → Hotel-PMS Implementation Verification
 
 ---
 
 ## Overview
 
-This document provides a comprehensive guide for validating that all core cashier operations in hotel-pms work exactly like the legacy KFO Delphi system.
+This document provides a comprehensive guide for validating that all core cashier operations in hotel-pms work exactly like the legacy hotel-pms Delphi system.
 
 ---
 
@@ -28,7 +28,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ## Validation Test Cases
 
-### 1. Post Charge (KFO: PostNewFolioTransactionEX)
+### 1. Post Charge (hotel-pms: PostNewFolioTransactionEX)
 
 | Test Step | Expected Behavior | Verification |
 |-----------|------------------|--------------|
@@ -46,7 +46,7 @@ This document provides a comprehensive guide for validating that all core cashie
 | Verify timestamp | Current date/time | Accurate |
 | Verify audit trail | posted_by = current user | User recorded |
 
-**KFO Parity Check:**
+**hotel-pms Parity Check:**
 - [ ] VAT formula matches: `(Gross × 7) / (100 + 7) = 228.97`
 - [ ] SC formula matches: `(Gross × 10) / (100 + 7 + 10) = 299.15`
 - [ ] Folio total auto-recalculated
@@ -71,7 +71,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 3. Receive Payment (KFO: ReceivePayment)
+### 3. Receive Payment (hotel-pms: ReceivePayment)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -90,7 +90,7 @@ This document provides a comprehensive guide for validating that all core cashie
 - [ ] **Bank Transfer**: Requires reference_number
 - [ ] **City Ledger (AR)**: Mark as AR account
 
-**KFO Parity Check:**
+**hotel-pms Parity Check:**
 - [ ] Payment stored in folio_payments table
 - [ ] Folio totals auto-recalculated
 - [ ] Balance = total_amount - paid_amount
@@ -98,7 +98,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 4. Void Transaction (KFO: sets PAYF='W', voidstatus='Y')
+### 4. Void Transaction (hotel-pms: sets PAYF='W', voidstatus='Y')
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -113,7 +113,7 @@ This document provides a comprehensive guide for validating that all core cashie
 | Verify voided flag | is_voided = true |
 | Verify payf flag | payf = 'W' |
 
-**Void Constraints (KFO Rules):**
+**Void Constraints (hotel-pms Rules):**
 - [ ] Cannot void locked folio
 - [ ] Cannot void already paid items
 - [ ] Cannot void already voided items
@@ -122,7 +122,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 5. Issue Credit Note (KFO: Credit Note)
+### 5. Issue Credit Note (hotel-pms: Credit Note)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -145,7 +145,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 6. Transfer Items Between Folios (KFO: Transfer)
+### 6. Transfer Items Between Folios (hotel-pms: Transfer)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -169,7 +169,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 7. Lock/Unlock Folio (KFO: Block/Unblock)
+### 7. Lock/Unlock Folio (hotel-pms: Block/Unblock)
 
 **Lock Folio:**
 | Test Step | Expected Behavior |
@@ -191,7 +191,7 @@ This document provides a comprehensive guide for validating that all core cashie
 | Verify locked_at | Cleared to null |
 | Try to post charge | Success: Charge posted |
 
-**Lock Constraints (KFO Rules):**
+**Lock Constraints (hotel-pms Rules):**
 - [ ] Only locked folio prevents modifications
 - [ ] Does NOT prevent viewing
 - [ ] Does NOT prevent checkout
@@ -200,7 +200,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 8. Folio Setup (Billing Instructions) (KFO: FolioSetup)
+### 8. Folio Setup (Billing Instructions) (hotel-pms: FolioSetup)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -237,7 +237,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 10. Checkout Flow (KFO: Checkout)
+### 10. Checkout Flow (hotel-pms: Checkout)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -259,7 +259,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 11. Tax Invoice Generation (KFO: TAX_INV)
+### 11. Tax Invoice Generation (hotel-pms: TAX_INV)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -283,7 +283,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 12. Bill To / Billing Address (KFO: BillAddress)
+### 12. Bill To / Billing Address (hotel-pms: BillAddress)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -308,7 +308,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 13. Folio Remark (KFO: Remark)
+### 13. Folio Remark (hotel-pms: Remark)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -322,7 +322,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 14. Shift Code Tracking (KFO: SHIFTCODE)
+### 14. Shift Code Tracking (hotel-pms: SHIFTCODE)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -339,7 +339,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ---
 
-### 15. Advance Payment (KFO: Advance Payment)
+### 15. Advance Payment (hotel-pms: Advance Payment)
 
 | Test Step | Expected Behavior |
 |-----------|------------------|
@@ -360,7 +360,7 @@ This document provides a comprehensive guide for validating that all core cashie
 
 ## PAYF Flag Verification Matrix
 
-| Flag | KFO Meaning | Hotel-PMS | Badge Color | Display |
+| Flag | hotel-pms Meaning | Hotel-PMS | Badge Color | Display |
 |------|--------------|------------|-------------|---------|
 | `''` or `'I'` | Normal Item | Default | Gray | CHRG |
 | `'P'` | Paid Item | Paid | Blue | PAID |
@@ -397,7 +397,7 @@ Net = 1,000 - 65.42 - 85.47 = 849.11 THB
 **Verification Points:**
 - [ ] VAT rounded to 2 decimal places
 - [ ] SC rounded to 2 decimal places
-- [ ] Rounding matches KFO: `ROUND(... * 100) / 100`
+- [ ] Rounding matches hotel-pms: `ROUND(... * 100) / 100`
 - [ ] vatable_amount = gross (for V type)
 - [ ] non_vat_amount = 0 (for V type)
 
@@ -537,7 +537,7 @@ SELECT recalculate_folio_totals('[folio_id]');
 - [ ] Folio is_locked = true
 - [ ] Need to unlock first
 
-**Expected Behavior:** This is correct KFO behavior
+**Expected Behavior:** This is correct hotel-pms behavior
 
 ### Issue: Cannot Find Transaction Code
 **Symptoms:** "Transaction code not found" error
@@ -570,13 +570,13 @@ SELECT recalculate_folio_totals('[folio_id]');
 ### Data Integrity
 - [ ] Folio totals auto-recalculate
 - [ ] Balance calculations correct
-- [ ] VAT/SC calculations match KFO
+- [ ] VAT/SC calculations match hotel-pms
 - [ ] PAYF flags correct
 - [ ] Audit trail complete
 - [ ] Foreign key integrity
 
-### KFO Parity
-- [ ] All KFO features available
+### hotel-pms Parity
+- [ ] All hotel-pms features available
 - [ ] Calculation formulas match
 - [ ] Business rules match
 - [ ] User experience similar
@@ -587,7 +587,7 @@ SELECT recalculate_folio_totals('[folio_id]');
 ## Next Steps After Validation
 
 1. **Document Discrepancies**
-   - Create issue list for any KFO deviations
+   - Create issue list for any hotel-pms deviations
    - Prioritize critical issues
    - Plan fixes
 
@@ -597,7 +597,7 @@ SELECT recalculate_folio_totals('[folio_id]');
    - Identify bottlenecks
 
 3. **Integration Testing**
-   - Test with real KFO data migration
+   - Test with real hotel-pms data migration
    - Verify reports match
    - Check edge cases
 
@@ -615,7 +615,7 @@ SELECT recalculate_folio_totals('[folio_id]');
 | Technical Lead | | | |
 | QA Lead | | | |
 | Hotel Manager | | | |
-| KFO SME | | | |
+| hotel-pms SME | | | |
 
 **Validation Complete:** _______________
 **Ready for Production:** _______________

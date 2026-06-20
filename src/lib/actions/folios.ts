@@ -90,7 +90,7 @@ const FOLIO_SELECT = `
 
 // ─────────────────────────────────────────────
 // 1. GET TRANSACTION CODES
-//    (KFO: revenuetrancode list for dropdown)
+//    (revenuetrancode list for dropdown)
 // ─────────────────────────────────────────────
 export async function getTransactionCodes(
   onlyManual = true,
@@ -131,7 +131,7 @@ export async function getPaymentCodes(): Promise<
 
 // ─────────────────────────────────────────────
 // 2. GET OR CREATE 4 FOLIOS FOR A RESERVATION
-//    (KFO: Folio 1, 2, 3, 4 per guest)
+//    (Folio 1, 2, 3, 4 per guest)
 // ─────────────────────────────────────────────
 export async function getOrCreateReservationFolios(
   reservationId: string,
@@ -169,9 +169,9 @@ export async function getOrCreateReservationFolios(
 // ─────────────────────────────────────────────
 export interface GetOpenFoliosOptions {
   search?: string;
-  /** KFO: cbChkouttoday — show only guests whose check-out date is today */
+  /** cbChkouttoday — show only guests whose check-out date is today */
   dueOutToday?: boolean;
-  /** KFO: cbChkOutOnly — include checked-out (status=checked_out) as well */
+  /** cbChkOutOnly — include checked-out (status=checked_out) as well */
   checkoutOnly?: boolean;
 }
 
@@ -193,7 +193,7 @@ export async function getOpenFolios(
     .in("status", statuses)
     .is("deleted_at", null);
 
-  // KFO: cbChkouttoday / cbdueout filter
+  // cbChkouttoday / cbdueout filter
   if (opts.dueOutToday) {
     reservationQuery = reservationQuery.eq("check_out_date", todayStr);
   }
@@ -270,7 +270,7 @@ export async function getFolioById(
 
 // ─────────────────────────────────────────────
 // 5. POST TRANSACTION (with VAT / SC via RPC)
-//    (KFO: PostNewFolioTransactionEX)
+//    (PostNewFolioTransactionEX)
 // ─────────────────────────────────────────────
 export async function postFolioTransaction(
   formData: unknown,
@@ -401,7 +401,7 @@ export async function postFolioTransaction(
 
 // ─────────────────────────────────────────────
 // 6. RECEIVE PAYMENT
-//    (KFO: ReceivePayment — stores to folio_payments)
+//    (ReceivePayment — stores to folio_payments)
 // ─────────────────────────────────────────────
 export async function receiveFolioPayment(
   formData: unknown,
@@ -482,7 +482,7 @@ export async function receiveFolioPayment(
 
 // ─────────────────────────────────────────────
 // 7. VOID FOLIO ITEM
-//    (KFO: sets PAYF='W', voidstatus='Y')
+//    (sets PAYF='W', voidstatus='Y')
 // ─────────────────────────────────────────────
 export async function voidFolioItem(
   itemId: string,
@@ -545,7 +545,7 @@ export async function voidFolioItem(
 
 // ─────────────────────────────────────────────
 // 8. ISSUE CREDIT NOTE
-//    (KFO: DoCorrectPymt — reverses a transaction,
+//    (DoCorrectPymt — reverses a transaction,
 //           sets original payf='C', inserts negative copy)
 // ─────────────────────────────────────────────
 export async function issueCreditNote(
@@ -649,7 +649,7 @@ export async function issueCreditNote(
 
 // ─────────────────────────────────────────────
 // 9. TRANSFER ITEMS BETWEEN FOLIOS
-//    (KFO: MoveFolioTransTo — move charges across folios)
+//    (MoveFolioTransTo — move charges across folios)
 // ─────────────────────────────────────────────
 export async function transferFolioItems(
   itemIds: string[],
@@ -712,7 +712,7 @@ export async function transferFolioItems(
 
 // ─────────────────────────────────────────────
 // 10. LOCK / UNLOCK FOLIO
-//     (KFO: Block/Unblock folio)
+//     (Block/Unblock folio)
 // ─────────────────────────────────────────────
 export async function setFolioLock(
   folioId: string,
@@ -749,7 +749,7 @@ export async function setFolioLock(
 
 // ─────────────────────────────────────────────
 // 11. BILLING ADDRESS — GET & SAVE
-//     (KFO: Billaddress.pas — ที่อยู่ใบกำกับภาษี)
+//     (Billaddress.pas — ที่อยู่ใบกำกับภาษี)
 // ─────────────────────────────────────────────
 export async function getBillingAddress(
   reservationId: string,
@@ -812,7 +812,7 @@ export async function saveBillingAddress(
 
 // ─────────────────────────────────────────────
 // 12. FOLIO SETUP (Billing Instructions)
-//     (KFO: foliosetupmaster + foliosetupdetail)
+//     (foliosetupmaster + foliosetupdetail)
 // ─────────────────────────────────────────────
 export async function getFolioSetup(
   reservationId: string,
@@ -872,7 +872,7 @@ export async function deleteFolioSetupItem(
 
 // ─────────────────────────────────────────────
 // 13. TAX INVOICE — Issue & Get
-//     (KFO: Tax Invoice / ใบกำกับภาษี)
+//     (Tax Invoice / ใบกำกับภาษี)
 // ─────────────────────────────────────────────
 export async function issueTaxInvoice(
   folioId: string,
@@ -1063,7 +1063,7 @@ export async function postTransaction(formData: unknown) {
 
 // ─────────────────────────────────────────────
 // 17. CHECKOUT FROM CASHIER
-//    (KFO: doCompleteChkOut — validates zero balance,
+//    (doCompleteChkOut — validates zero balance,
 //          updates reservation status, handles share guests)
 // ─────────────────────────────────────────────
 export async function checkoutReservation(
@@ -1157,7 +1157,7 @@ export async function checkoutReservation(
 
 // ─────────────────────────────────────────────
 // 18. SPLIT TRANSACTION
-//    (KFO: SplitInto — split a charge into partial amounts)
+//    (SplitInto — split a charge into partial amounts)
 // ─────────────────────────────────────────────
 export async function splitFolioItem(
   itemId: string,
@@ -1300,7 +1300,7 @@ export async function voidTransaction(itemId: string, reason: string) {
 
 // ─────────────────────────────────────────────
 // POST CORRECTION ITEM
-// KFO: Postcorrectionofthisrecord1 — posts an offsetting (negative) entry
+// Postcorrectionofthisrecord1 — posts an offsetting (negative) entry
 // to reverse a charge without fully voiding it (leaves audit trail)
 // ─────────────────────────────────────────────
 export async function postCorrectionItem(
@@ -1357,7 +1357,7 @@ export async function postCorrectionItem(
       shift_code: shiftCode,
       posted_by: userId,
       is_voided: false,
-      payf: "C", // KFO PAYF='C' = correction/credit
+      payf: "C", // PAYF='C' = correction/credit
     })
     .select("id")
     .single();
@@ -1379,7 +1379,7 @@ export async function postCorrectionItem(
 
 // ─────────────────────────────────────────────
 // UPDATE FOLIO REMARK
-// KFO: Remark per folio (btnExpandremark / btnComment)
+// Remark per folio (btnExpandremark / btnComment)
 // ─────────────────────────────────────────────
 export async function updateFolioRemark(
   folioId: string,
@@ -1398,7 +1398,7 @@ export async function updateFolioRemark(
 
 // ─────────────────────────────────────────────
 // RECEIVE PAYMENT FOR SELECTED ITEMS
-// KFO: btnSelectedPay — pays only checked/selected folio items
+// btnSelectedPay — pays only checked/selected folio items
 // Creates a payment entry and marks those items as paid
 // payf: 'P' = Paid with Tax Invoice, 'C' = Paid Cash (no tax invoice)
 // payment_type: 'PA' = Pay All, 'PT' = Partial, 'PR' = Refund

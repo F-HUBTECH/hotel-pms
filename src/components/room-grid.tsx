@@ -29,7 +29,7 @@ interface RoomGridProps {
 }
 
 const statusColors: Record<RoomStatus, { bg: string; border: string; text: string; label: string }> = {
-  available: { bg: 'bg-emerald-50border-emerald-200 hover', border: ':border-emerald-400', text: 'text-emerald-700', label: 'Available' },
+  available: { bg: 'bg-emerald-50 border-emerald-200 hover:border-emerald-400', border: 'border-emerald-200', text: 'text-emerald-700', label: 'Available' },
   occupied: { bg: 'bg-blue-50', border: 'border-blue-200 hover:border-blue-400', text: 'text-blue-700', label: 'Occupied' },
   reserved: { bg: 'bg-amber-50', border: 'border-amber-200 hover:border-amber-400', text: 'text-amber-700', label: 'Reserved' },
   dirty: { bg: 'bg-rose-50', border: 'border-rose-200 hover:border-rose-400', text: 'text-rose-700', label: 'Dirty' },

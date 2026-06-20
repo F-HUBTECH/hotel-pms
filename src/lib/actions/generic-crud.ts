@@ -1,12 +1,33 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { z } from 'zod'
 import type { ActionResponse, NamedEntity, PaginatedResponse } from '@/lib/types/database'
 
-const namedEntitySchema = z.object({
-    name: z.string().min(1, 'Name is required').max(200),
-})
+// Whitelist of tables allowed for generic CRUD operations
+// Prevents table name injection from client
+const ALLOWED_TABLES = new Set([
+    'booking_sources',
+    'channels',
+    'departments',
+    'folio_groups',
+    'guest_types',
+    'market_groups',
+    'markets',
+    'nationalities',
+    'passport_types',
+    'special_services',
+    'user_groups',
+    'visa_types',
+    'zone_codes',
+])
+
+function validateTable(table: string): void {
+    if (!ALLOWED_TABLES.has(table)) {
+        throw new Error(`Table "${table}" is not allowed for generic CRUD operations`)
+    }
+}
+
+import { namedEntitySchema } from '@/lib/validators/generic-crud-schema'
 
 export async function getNamedEntities(
     table: string,
@@ -14,6 +35,7 @@ export async function getNamedEntities(
     pageSize = 10,
     search = ''
 ): Promise<PaginatedResponse<NamedEntity>> {
+    validateTable(table)
     const supabase = await createClient()
     let query = supabase.from(table).select('*', { count: 'exact' })
     if (search) query = query.ilike('name', `%${search}%`)
@@ -27,6 +49,7 @@ export async function createNamedEntity(
     table: string,
     formData: unknown
 ): Promise<ActionResponse<NamedEntity>> {
+    validateTable(table)
     const parsed = namedEntitySchema.safeParse(formData)
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
     const supabase = await createClient()
@@ -40,6 +63,7 @@ export async function updateNamedEntity(
     id: string,
     formData: unknown
 ): Promise<ActionResponse<NamedEntity>> {
+    validateTable(table)
     const parsed = namedEntitySchema.safeParse(formData)
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
     const supabase = await createClient()
@@ -52,6 +76,7 @@ export async function deleteNamedEntity(
     table: string,
     id: string
 ): Promise<ActionResponse> {
+    validateTable(table)
     const supabase = await createClient()
     const { error } = await supabase.from(table).delete().eq('id', id)
     if (error) {

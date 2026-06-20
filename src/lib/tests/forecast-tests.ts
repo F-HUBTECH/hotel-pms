@@ -441,10 +441,10 @@ export async function testComparisonReports(): Promise<any[]> {
 }
 
 // =============================================
-// 6. KFO VALIDATION TESTS
+// 6. Hotel PMS VALIDATION TESTS
 // =============================================
 
-export async function testKFOValidation(): Promise<any[]> {
+export async function testHotelPMSValidation(): Promise<any[]> {
   const tests = [
     await runIndividualTest(
       'Validate Available cell color (white with green border)',
@@ -502,9 +502,9 @@ export async function testKFOValidation(): Promise<any[]> {
       }
     ),
     await runIndividualTest(
-      'Match KFO grid layout format',
+      'Match Hotel PMS grid layout format',
       async () => {
-        // KFO grid has rooms on left, dates across top
+        // Hotel PMS grid has rooms on left, dates across top
         const hasRoomsColumn = true
         const hasDatesRow = true
         return {

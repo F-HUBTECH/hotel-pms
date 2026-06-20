@@ -10,7 +10,7 @@ import {
   testRoomStatusUpdates,
   testFITGRPBreakdown,
   testComparisonReports,
-  testKFOValidation,
+  testHotelPMSValidation,
 } from './forecast-tests'
 
 // =============================================
@@ -52,7 +52,7 @@ export class ForecastTestRunner {
       await this.runSuite('Room Status Updates', testRoomStatusUpdates),
       await this.runSuite('FIT vs GRP Breakdown', testFITGRPBreakdown),
       await this.runSuite('Comparison Reports', testComparisonReports),
-      await this.runSuite('KFO Validation', testKFOValidation),
+      await this.runSuite('Hotel PMS Validation', testHotelPMSValidation),
     ]
 
     const totalTests = suites.reduce((sum, s) => sum + s.tests.length, 0)
@@ -278,7 +278,7 @@ export function generateMockForecastData(days: number = 30, rooms: number = 10) 
 // VALIDATION HELPERS
 // =============================================
 
-export function validateKFOColorParity(
+export function validateHotelPMSColorParity(
   status: string,
   kfoColor: string
 ): { matches: boolean; expected: string; actual: string } {

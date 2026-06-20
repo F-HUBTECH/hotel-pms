@@ -2,6 +2,11 @@ import { ReservationRepository, CreateReservationDTO } from '../repositories/res
 import { RateEngineService } from './rate-engine'
 import type { RatePlan } from '@/lib/types/database'
 
+/** Calculate Average Daily Rate from total stay price */
+export function calculateAverageDailyRate(totalPrice: number, nights: number): number {
+    return nights > 0 ? Math.round(totalPrice / nights) : totalPrice
+}
+
 export class ReservationService {
     /**
      * Orchestrates rate calculation and transactional reservation creation.
@@ -13,7 +18,7 @@ export class ReservationService {
             if (ratePlan && finalRate === 0) {
                 const total = await RateEngineService.calculateStayPrice(ratePlan, data.check_in_date, data.check_out_date)
                 const nights = Math.ceil((new Date(data.check_out_date).getTime() - new Date(data.check_in_date).getTime()) / 86400000)
-                finalRate = nights > 0 ? Math.round(total / nights) : total // Store Average Daily Rate
+                finalRate = calculateAverageDailyRate(total, nights)
             }
 
             // 2. Execute transactional creation

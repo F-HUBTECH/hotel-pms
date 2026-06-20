@@ -255,6 +255,13 @@ export async function getVarianceAnalysis(
 // 5. HELPER FUNCTIONS
 // =============================================
 
+/** Classify variance trend: >5 = up, < -5 = down, else stable */
+export function classifyTrend(variancePercent: number): 'up' | 'down' | 'stable' {
+    if (variancePercent > 5) return 'up'
+    if (variancePercent < -5) return 'down'
+    return 'stable'
+}
+
 function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const dayNum = d.getUTCDay() || 7

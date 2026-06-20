@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Hotel PMS - Forecast Report Page (KFO Parity)
- * Full KFO Feature Parity
+ * Hotel PMS - Forecast Report Page
+ * Full-feature occupancy and revenue forecasting
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -35,8 +35,8 @@ import { addDays, startOfToday, format } from 'date-fns'
 import { th } from 'date-fns/locale'
 import { toast } from 'sonner'
 
-// KFO Forecast Summary type (All fields)
-interface KFOCForecastRow {
+// Forecast Summary type (All fields)
+interface ForecastSummaryRow {
   forecast_date: string
   total_rooms: number
   stayover_rooms: number
@@ -134,7 +134,7 @@ export default function ForecastReportPage() {
   const [generating, setGenerating] = useState(false)
   const [hasRight, setHasRight] = useState(true)
   const [gridData, setGridData] = useState<ForecastRoomData[]>([])
-  const [kfoData, setKfoData] = useState<KFOCForecastRow[]>([])
+  const [forecastData, setKfoData] = useState<ForecastSummaryRow[]>([])
   const [roomTypeData, setRoomTypeData] = useState<RoomTypeForecast[]>([])
   const [occupiedByTypeData, setOccupiedByTypeData] = useState<OccupiedByRoomType[]>([])
   const [propertyId, setPropertyId] = useState<string | null>(null)
@@ -145,7 +145,7 @@ export default function ForecastReportPage() {
   const [endDate, setEndDate] = useState<Date>(addDays(startOfToday(), 20))
   const [buildingId, setBuildingId] = useState<string>('')
   const [roomTypeId, setRoomTypeId] = useState<string>('')
-  // KFO Filters
+  // Hotel PMS Filters
   const [roomOnly, setRoomOnly] = useState(false)
   const [revenueInclTentative, setRevenueInclTentative] = useState(true)
   const [noshowRev, setNoshowRev] = useState(false)
@@ -158,7 +158,7 @@ export default function ForecastReportPage() {
   const [buildings, setBuildings] = useState<Array<{ id: string; name: string }>>([])
   const [roomTypes, setRoomTypes] = useState<Array<{ id: string; name: string }>>([])
 
-  // Color thresholds from KFO config
+  // Color thresholds from Hotel PMS config
   const occLevel1 = 70
   const occLevel2 = 85
   const occLevel3 = 95
@@ -172,13 +172,13 @@ export default function ForecastReportPage() {
     checkRights()
   }, [])
 
-  // Fetch KFO forecast data
+  // Fetch Hotel PMS forecast data
   const fetchKFoData = useCallback(async () => {
     if (!propertyId) return
     
     const supabase = createClient()
     
-    // Call the new RPC for full KFO data
+    // Call the new RPC for full Hotel PMS data
     const { data, error } = await supabase.rpc('rpc_get_forecast_all', {
       p_start_date: format(startDate, 'yyyy-MM-dd'),
       p_end_date: format(endDate, 'yyyy-MM-dd'),
@@ -311,13 +311,13 @@ export default function ForecastReportPage() {
     }
   }, [propertyId, fetchData])
 
-  // Get occupancy color based on KFO thresholds
+  // Occupancy color thresholds: emerald (safe), amber (moderate), rose (near-full), red (overbooked)
   const getOccColor = (percentage: number) => {
-    if (percentage >= 100) return 'bg-blue-200 text-blue-900'
-    if (percentage >= occLevel3) return 'bg-red-100 text-red-800'
-    if (percentage >= occLevel2) return 'bg-orange-100 text-orange-800'
-    if (percentage >= occLevel1) return 'bg-yellow-100 text-yellow-800'
-    return 'bg-white text-slate-800'
+    if (percentage >= 100) return 'bg-rose-200 text-rose-900 font-extrabold'
+    if (percentage >= occLevel3) return 'bg-rose-100 text-rose-800'
+    if (percentage >= occLevel2) return 'bg-amber-100 text-amber-800'
+    if (percentage >= occLevel1) return 'bg-emerald-100 text-emerald-800'
+    return 'text-slate-600'
   }
 
   // Format currency
@@ -343,7 +343,7 @@ export default function ForecastReportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Forecast Report</h1>
-          <p className="text-slate-500">KFO Parity - Room Forecast with All Fields</p>
+          <p className="text-slate-500">Occupancy and revenue forecast with room-level detail</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -361,10 +361,28 @@ export default function ForecastReportPage() {
         </div>
       </div>
 
-      {/* Filters - KFO Style */}
+      {/* Filters - Hotel PMS Style */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex items-center gap-1">
+              {[7, 14, 21, 30].map((days) => (
+                <Button
+                  key={days}
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-7 px-2 text-slate-500 hover:text-indigo-600"
+                  onClick={() => {
+                    const from = startOfToday()
+                    setStartDate(from)
+                    setEndDate(addDays(from, days - 1))
+                  }}
+                >
+                  {days}d
+                </Button>
+              ))}
+            </div>
+            <div className="w-px h-8 bg-slate-200"></div>
             <div className="space-y-1">
               <Label className="text-xs text-slate-500">From Date</Label>
               <Input
@@ -411,29 +429,29 @@ export default function ForecastReportPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 border rounded bg-slate-50">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="roomOnly"
                 checked={roomOnly}
                 onCheckedChange={(v) => setRoomOnly(v as boolean)}
               />
-              <Label htmlFor="roomOnly" className="text-sm cursor-pointer">Room Only</Label>
+              <Label htmlFor="roomOnly" className="text-sm cursor-pointer text-slate-600">Room Only</Label>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 border rounded bg-slate-50">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="revenueInclTentative"
                 checked={revenueInclTentative}
                 onCheckedChange={(v) => setRevenueInclTentative(v as boolean)}
               />
-              <Label htmlFor="revenueInclTentative" className="text-sm cursor-pointer">Rev. Incl. Tentative</Label>
+              <Label htmlFor="revenueInclTentative" className="text-sm cursor-pointer text-slate-600">Rev. Incl. Tentative</Label>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 border rounded bg-slate-50">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="noshowRev"
                 checked={noshowRev}
                 onCheckedChange={(v) => setNoshowRev(v as boolean)}
               />
-              <Label htmlFor="noshowRev" className="text-sm cursor-pointer">No Show Rev.</Label>
+              <Label htmlFor="noshowRev" className="text-sm cursor-pointer text-slate-600">No Show Rev.</Label>
             </div>
             <Button onClick={fetchData} variant="outline" size="sm">
               Apply
@@ -442,7 +460,7 @@ export default function ForecastReportPage() {
         </CardContent>
       </Card>
 
-      {/* Main Content - 3 Tabs like KFO */}
+      {/* Main Content - 3 Tabs like Hotel PMS */}
       <Tabs defaultValue="all" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All (Aggregated)</TabsTrigger>
@@ -450,13 +468,13 @@ export default function ForecastReportPage() {
           <TabsTrigger value="occupied">Occupied by Room Type</TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: All (Aggregated) - Full KFO Grid */}
+        {/* Tab 1: All (Aggregated) - Full Hotel PMS Grid */}
         <TabsContent value="all" className="space-y-6">
           {loading ? (
             <div className="flex justify-center p-12">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
             </div>
-          ) : kfoData.length === 0 ? (
+          ) : forecastData.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
                 <Calendar className="h-12 w-12 mx-auto text-slate-300 mb-4" />
@@ -470,7 +488,7 @@ export default function ForecastReportPage() {
             <>
               {/* KPI Summary Cards */}
               <ForecastKPICards
-                data={kfoData.map(d => ({
+                data={forecastData.map(d => ({
                   forecast_date: d.forecast_date,
                   total_rooms: d.total_rooms,
                   available_rooms: d.avl_rooms,
@@ -500,100 +518,136 @@ export default function ForecastReportPage() {
                 }))}
               />
 
-              {/* Full KFO Grid - All 28+ columns */}
+              {/* Two focused tables: Room Inventory + Revenue & Guest */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Hotel className="h-5 w-5" />
-                    Forecast - All Rooms
+                    Room Inventory
                   </CardTitle>
                   <CardDescription>
                     {format(startDate, 'PPP', { locale: th })} - {format(endDate, 'PPP', { locale: th })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="overflow-x-auto">
-                  <div className="min-w-[2000px]">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100">
-                          <th className="p-2 text-left border sticky left-0 bg-slate-100 z-10">Date</th>
-                          <th className="p-2 text-right border">Total Rm</th>
-                          <th className="p-2 text-right border">Stay Over</th>
-                          <th className="p-2 text-right border">Arrive</th>
-                          <th className="p-2 text-right border">Depart</th>
-                          <th className="p-2 text-right border">Occ.</th>
-                          <th className="p-2 text-right border">Occ.%</th>
-                          <th className="p-2 text-right border">Comp.</th>
-                          <th className="p-2 text-right border">H/U</th>
-                          <th className="p-2 text-right border">O/O</th>
-                          <th className="p-2 text-right border">O/I</th>
-                          <th className="p-2 text-right border">Avl.</th>
-                          <th className="p-2 text-right border">F.Tent</th>
-                          <th className="p-2 text-right border">G.Tent</th>
-                          <th className="p-2 text-right border">Occ.%+Tent</th>
-                          <th className="p-2 text-right border">Avl-Tent</th>
-                          <th className="p-2 text-right border">Ad.pax</th>
-                          <th className="p-2 text-right border">Ch.pax</th>
-                          <th className="p-2 text-right border">Tot.pax</th>
-                          <th className="p-2 text-right border">Occ.pax</th>
-                          <th className="p-2 text-right border">Rm.Sold</th>
-                          <th className="p-2 text-right border">OCR%</th>
-                          <th className="p-2 text-right border">Day use</th>
-                          <th className="p-2 text-right border">Def.RoomRev</th>
-                          <th className="p-2 text-right border">Def.Avg</th>
-                          <th className="p-2 text-right border">Ten.TotRev</th>
-                          <th className="p-2 text-right border">Ten.AvgRev</th>
-                          <th className="p-2 text-right border">Tot.RoomRev</th>
-                          <th className="p-2 text-right border">Avg.Rate</th>
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 sticky top-0">
+                        <th className="p-2 text-left border sticky left-0 bg-slate-100 z-10">Date</th>
+                        <th className="p-2 text-right border">Total</th>
+                        <th className="p-2 text-right border">Stay</th>
+                        <th className="p-2 text-right border">Arr</th>
+                        <th className="p-2 text-right border">Dep</th>
+                        <th className="p-2 text-right border">Occ</th>
+                        <th className="p-2 text-right border">Occ%</th>
+                        <th className="p-2 text-right border">Comp</th>
+                        <th className="p-2 text-right border">HU</th>
+                        <th className="p-2 text-right border">OO</th>
+                        <th className="p-2 text-right border">OI</th>
+                        <th className="p-2 text-right border">Avl</th>
+                        <th className="p-2 text-right border">F.Tent</th>
+                        <th className="p-2 text-right border">G.Tent</th>
+                        <th className="p-2 text-right border">Occ%+T</th>
+                        <th className="p-2 text-right border">Avl-T</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {forecastData.map((row) => (
+                        <tr key={row.forecast_date} className="hover:bg-slate-50">
+                          <td className="p-2 border font-medium sticky left-0 bg-white">{row.forecast_date.slice(5)}</td>
+                          <td className="p-2 text-right border">{row.total_rooms}</td>
+                          <td className="p-2 text-right border">{row.stayover_rooms}</td>
+                          <td className="p-2 text-right border text-indigo-600 font-medium">{row.arrival_rooms}</td>
+                          <td className="p-2 text-right border text-amber-600">{row.departure_rooms}</td>
+                          <td className="p-2 text-right border font-medium">{row.occ_rooms}</td>
+                          <td className={`p-2 text-right border font-bold ${getOccColor(row.occ_percentage)}`}>{row.occ_percentage}%</td>
+                          <td className="p-2 text-right border">{row.comp_rooms}</td>
+                          <td className="p-2 text-right border">{row.hu_rooms}</td>
+                          <td className="p-2 text-right border">{row.oo_rooms}</td>
+                          <td className="p-2 text-right border">{row.oi_rooms}</td>
+                          <td className="p-2 text-right border">{row.avl_rooms}</td>
+                          <td className="p-2 text-right border text-indigo-500">{row.f_tent}</td>
+                          <td className="p-2 text-right border text-indigo-500">{row.g_tent}</td>
+                          <td className="p-2 text-right border">{row.occ_pct_tentative}%</td>
+                          <td className="p-2 text-right border">{row.avl_after_tentative}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {kfoData.map((row) => (
-                          <tr key={row.forecast_date} className="hover:bg-slate-50">
-                            <td className="p-2 border font-medium sticky left-0 bg-white">
-                              {new Date(row.forecast_date).toLocaleDateString('en-GB', {
-                                weekday: 'short',
-                                day: '2-digit',
-                                month: 'short',
-                              })}
-                            </td>
-                            <td className="p-2 text-right border">{row.total_rooms}</td>
-                            <td className="p-2 text-right border">{row.stayover_rooms}</td>
-                            <td className="p-2 text-right border text-blue-600">{row.arrival_rooms}</td>
-                            <td className="p-2 text-right border text-red-600">{row.departure_rooms}</td>
-                            <td className="p-2 text-right border font-medium">{row.occ_rooms}</td>
-                            <td className={`p-2 text-right border font-bold ${getOccColor(row.occ_percentage)}`}>
-                              {row.occ_percentage}%
-                            </td>
-                            <td className="p-2 text-right border">{row.comp_rooms}</td>
-                            <td className="p-2 text-right border">{row.hu_rooms}</td>
-                            <td className="p-2 text-right border">{row.oo_rooms}</td>
-                            <td className="p-2 text-right border">{row.oi_rooms}</td>
-                            <td className="p-2 text-right border">{row.avl_rooms}</td>
-                            <td className="p-2 text-right border text-purple-600">{row.f_tent}</td>
-                            <td className="p-2 text-right border text-purple-600">{row.g_tent}</td>
-                            <td className="p-2 text-right border">{row.occ_pct_tentative}%</td>
-                            <td className="p-2 text-right border">{row.avl_after_tentative}</td>
-                            <td className="p-2 text-right border">{row.ad_pax}</td>
-                            <td className="p-2 text-right border">{row.ch_pax}</td>
-                            <td className="p-2 text-right border">{row.tot_pax}</td>
-                            <td className="p-2 text-right border">{row.occ_pax}</td>
-                            <td className="p-2 text-right border">{row.rm_sold}</td>
-                            <td className="p-2 text-right border">{row.ocr_pct_sale}%</td>
-                            <td className="p-2 text-right border">{row.day_use}</td>
-                            <td className="p-2 text-right border">฿{fmt(row.def_room_rev)}</td>
-                            <td className="p-2 text-right border">฿{fmt(row.def_avg_room_rev)}</td>
-                            <td className="p-2 text-right border">฿{fmt(row.ten_tot_room_rev)}</td>
-                            <td className="p-2 text-right border">฿{fmt(row.ten_avg_room_rev)}</td>
-                            <td className="p-2 text-right border font-medium">฿{fmt(row.tot_room_rev)}</td>
-                            <td className="p-2 text-right border">฿{fmt(row.avg_room_rate)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Revenue and Guest
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 sticky top-0">
+                        <th className="p-2 text-left border sticky left-0 bg-slate-100 z-10">Date</th>
+                        <th className="p-2 text-right border">Ad.Pax</th>
+                        <th className="p-2 text-right border">Ch.Pax</th>
+                        <th className="p-2 text-right border">Tot.Pax</th>
+                        <th className="p-2 text-right border">Occ.Pax</th>
+                        <th className="p-2 text-right border">Rm.Sold</th>
+                        <th className="p-2 text-right border">OCR%</th>
+                        <th className="p-2 text-right border">Day Use</th>
+                        <th className="p-2 text-right border">Def.Rev</th>
+                        <th className="p-2 text-right border">Def.Avg</th>
+                        <th className="p-2 text-right border">Ten.Rev</th>
+                        <th className="p-2 text-right border">Ten.Avg</th>
+                        <th className="p-2 text-right border">Tot.Rev</th>
+                        <th className="p-2 text-right border">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {forecastData.map((row) => (
+                        <tr key={row.forecast_date} className="hover:bg-slate-50">
+                          <td className="p-2 border font-medium sticky left-0 bg-white">{row.forecast_date.slice(5)}</td>
+                          <td className="p-2 text-right border">{row.ad_pax}</td>
+                          <td className="p-2 text-right border">{row.ch_pax}</td>
+                          <td className="p-2 text-right border">{row.tot_pax}</td>
+                          <td className="p-2 text-right border">{row.occ_pax}</td>
+                          <td className="p-2 text-right border">{row.rm_sold}</td>
+                          <td className="p-2 text-right border">{row.ocr_pct_sale}%</td>
+                          <td className="p-2 text-right border">{row.day_use}</td>
+                          <td className="p-2 text-right border">฿{fmt(row.def_room_rev)}</td>
+                          <td className="p-2 text-right border">฿{fmt(row.def_avg_room_rev)}</td>
+                          <td className="p-2 text-right border">฿{fmt(row.ten_tot_room_rev)}</td>
+                          <td className="p-2 text-right border">฿{fmt(row.ten_avg_room_rev)}</td>
+                          <td className="p-2 text-right border font-medium">฿{fmt(row.tot_room_rev)}</td>
+                          <td className="p-2 text-right border">฿{fmt(row.avg_room_rate)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              {/* Occupancy legend */}
+              <div className="flex items-center gap-4 text-xs text-slate-500 px-1">
+                <span className="font-medium">Occupancy:</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200"></span>
+                  &lt;{occLevel1}%
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-amber-100 border border-amber-200"></span>
+                  {occLevel1}–{occLevel2}%
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-rose-100 border border-rose-200"></span>
+                  {occLevel2}–{occLevel3}%
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-rose-200 border border-rose-300"></span>
+                  ≥{occLevel3}%
+                </span>
+              </div>
             </>
           )}
         </TabsContent>

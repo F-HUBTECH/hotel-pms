@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hotel PMS — Property Management System
+
+ระบบบริหารจัดการโรงแรม (Property Management System) ที่พัฒนาด้วย Next.js 16 + Supabase + TypeScript
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Framework** | Next.js 16 (App Router) |
+| **Language** | TypeScript 5 (strict mode) |
+| **Database** | PostgreSQL (Supabase) |
+| **Auth** | Supabase Auth + RBAC |
+| **UI** | React 19 + Tailwind CSS 4 + shadcn/ui + Radix UI |
+| **Validation** | Zod 4 |
+| **Charts** | Recharts |
+| **Icons** | Lucide React |
+
+## Features
+
+- **Front Desk**: การจองห้องพัก, Check-in/Check-out, Room Chart, Group Bookings, Calendar
+- **Cashier**: ระบบ Billing & Folio, Fast Posting, Folio Inquiry, Payment Processing
+- **Accounting**: General Ledger, Tax Invoices (ใบกำกับภาษี), VAT/Service Charge calculation, Night Audit
+- **Revenue**: Revenue management, Rate Plans, Seasonal Rates, Weekday Rates
+- **Forecast**: Occupancy & revenue forecasting with adjustments
+- **Operations**: Housekeeping task management, Channel sync
+- **Reports**: Occupancy reports, Revenue reports, Guest ledger, Trial balance, Aging reports
+- **Master Data**: Buildings, Rooms, Rate configurations, Booking sources, Markets, etc.
+- **Admin**: User management, Role-Based Access Control (super_admin/admin/manager/staff)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 20+
+- Supabase account & project
 
+### Setup
+
+1. **Clone & Install**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url>
+cd hotel-pms
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Configure Environment**
+```bash
+cp .env.example .env.local
+```
+Edit `.env.local` with your Supabase project credentials:
+- `NEXT_PUBLIC_SUPABASE_URL` — from Supabase Dashboard > Settings > API
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — your project's anon key
+- `SUPABASE_SERVICE_ROLE_KEY` — your project's service_role key (keep secret!)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Deploy Database Schema**
+```bash
+# Run SQL files in order:
+# supabase/schema.sql (base schema)
+# supabase/schema_v2.sql through schema_v12_*.sql (incremental)
+# supabase/rls_policies.sql (Row Level Security)
+# supabase/schema_v6_rls.sql (multi-property RLS)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Seed data:
+# supabase/seed.sql, supabase/seed_rooms.sql
+```
 
-## Learn More
+4. **Run Development Server**
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000)
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/                    # Next.js App Router pages & layouts
+│   ├── (auth)/             # Login/auth routes
+│   └── (dashboard)/        # Protected dashboard routes
+├── components/
+│   ├── ui/                 # shadcn/ui primitives
+│   ├── shared/             # Reusable app components
+│   └── forecast/           # Forecast-specific components
+├── lib/
+│   ├── actions/            # Server Actions (API layer)
+│   ├── services/           # Business logic
+│   ├── repositories/       # Database access layer
+│   ├── types/              # TypeScript type definitions
+│   ├── constants/          # Constants & configuration
+│   ├── validators/         # Zod validation schemas
+│   ├── auth/               # RBAC roles & permissions
+│   ├── supabase/           # Supabase client configs
+│   └── utils/              # Shared utilities
+supabase/                   # SQL schema, migrations, seeds
+docs/                       # Documentation & migration plans
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+```
+Client Component → Server Action → Service → Repository → Supabase/DB
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Server Actions** (`lib/actions/`): Thin API layer — validates input (Zod), delegates to services
+- **Services** (`lib/services/`): Business logic, orchestration
+- **Repositories** (`lib/repositories/`): Database queries, RPC calls
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+```bash
+npm run build
+npm start
+```
+
+Deploy to Vercel, Netlify, or any Node.js hosting platform.
+
+---
+
+**License**: Private

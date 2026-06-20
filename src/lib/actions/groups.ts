@@ -169,7 +169,7 @@ export async function addGroupBlock(blockData: any) {
     return result.data;
 }
 
-// -- Group Bookings (from KFO bookheader) --
+// -- Group Bookings --
 
 export async function getGroupBookings(groupId: string) {
     const supabase = await createClient();
@@ -278,7 +278,7 @@ export async function deleteGroupBooking(bookingId: string, groupId: string) {
     return { success: true };
 }
 
-// -- Group Guests (Rooming List from KFO customer) --
+// -- Group Guests (Rooming List) --
 
 export async function getGroupGuests(groupId: string) {
     const supabase = await createClient();
@@ -566,7 +566,7 @@ export async function checkOutGroupGuest(guestId: string, groupId: string) {
     return { success: true, data };
 }
 
-// -- Group Deposits (from KFO depositrev) --
+// -- Group Deposits --
 
 export async function getGroupDeposits(groupId: string) {
     const supabase = await createClient();

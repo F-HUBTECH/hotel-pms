@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { checkAvailability, createReservation } from '@/lib/actions/reservations'
 import { searchGuests, createGuest } from '@/lib/actions/guests'
+import { formatDateShort } from '@/lib/utils/date'
 import { getCorporateAllotments, checkAllotmentAvailability, pickFromAllotment } from '@/lib/actions/allotments'
 import type { Room, Guest, RoomType, BookingSource, Market } from '@/lib/types/database'
 import { createBrowserClient } from '@supabase/ssr'
@@ -239,6 +240,7 @@ export default function NewBookingPage() {
 
     // Submit reservation
     const handleSubmit = async () => {
+        if (loading) return // Prevent double submission
         console.log('handleSubmit called')
         if (!selectedGuest) { toast.error('Please select a guest'); return }
         if (!selectedRoomTypeId) { toast.error('Please select a room type'); return }
@@ -313,31 +315,42 @@ export default function NewBookingPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
+            {/* Screen reader announcer for step changes */}
+            <div role="status" aria-live="polite" className="sr-only">
+                Step {step + 1} of {STEPS.length}: {STEPS[step]}
+            </div>
+
             <div>
                 <h1 className="text-2xl font-bold text-slate-900">New Booking</h1>
-                <p className="text-sm text-slate-500 mt-1">Create a new reservation</p>
+                <p className="text-sm text-slate-600 mt-1">Create a new reservation</p>
             </div>
 
             {/* Step indicator */}
-            <div className="flex items-center gap-2">
+            <nav aria-label="Booking progress" className="flex items-center gap-2">
                 {STEPS.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
-                            }`}>
-                            {i < step ? <Check className="w-4 h-4" /> : i + 1}
+                    <div key={i} className="flex items-center gap-2" aria-current={i === step ? 'step' : undefined}>
+                        <div
+                            role="progressbar"
+                            aria-valuenow={i < step ? 100 : i === step ? 50 : 0}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`Step ${i + 1}: ${s}${i < step ? ' (completed)' : i === step ? ' (current)' : ''}`}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${i < step ? 'bg-emerald-500 text-white' : i === step ? 'bg-primary text-primary-foreground' : 'bg-slate-100 text-slate-400'
+                                }`}>
+                            {i < step ? <Check className="w-4 h-4" aria-hidden="true" /> : i + 1}
                         </div>
-                        <span className={`text-sm hidden sm:inline ${i === step ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>{s}</span>
-                        {i < STEPS.length - 1 && <div className={`w-8 h-px ${i < step ? 'bg-emerald-300' : 'bg-slate-200'}`} />}
+                        <span className={`text-sm hidden sm:inline ${i === step ? 'text-primary font-medium' : 'text-slate-400'}`}>{s}</span>
+                        {i < STEPS.length - 1 && <div className={`w-8 h-px ${i < step ? 'bg-emerald-300' : 'bg-slate-200'}`} aria-hidden="true" />}
                     </div>
                 ))}
-            </div>
+            </nav>
 
             {/* Step 0: Dates & Room Type */}
             {step === 0 && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><CalendarDays className="w-5 h-5" />Select Dates & Room Type</CardTitle>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-slate-600">
                             RoomTypes: {roomTypes.length} | Sources: {sources.length} | Markets: {markets.length}
                         </div>
                     </CardHeader>
@@ -352,7 +365,7 @@ export default function NewBookingPage() {
                                 <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn || new Date().toISOString().split('T')[0]} />
                             </div>
                         </div>
-                        {nights > 0 && <p className="text-sm text-indigo-600 font-medium">{nights} night{nights > 1 ? 's' : ''}</p>}
+                        {nights > 0 && <p className="text-sm text-primary font-medium">{nights} night{nights > 1 ? 's' : ''}</p>}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -393,16 +406,16 @@ export default function NewBookingPage() {
                             </div>
                             <div className="space-y-2 col-span-2">
                                 <Label>Estimated Total</Label>
-                                <div className="h-10 flex items-center px-3 border rounded-md bg-slate-50 text-indigo-700 font-semibold">
+                                <div className="h-10 flex items-center px-3 border rounded-md bg-slate-50 text-primary font-semibold">
                                     {calculatingRate ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500" /> : `฿${totalEstimate.toLocaleString()} (ADR: ฿${rate.toLocaleString()})`}
                                 </div>
                             </div>
                         </div>
                         <div className="flex justify-end pt-4 gap-2">
-                            <div className="text-xs text-slate-400 flex items-center">
+                            <div className="text-xs text-slate-600 flex items-center">
                                 RT: {selectedRoomTypeId ? '✓' : '✗'} | RP: {selectedRatePlanId ? '✓' : '✗'}
                             </div>
-                            <Button onClick={searchAvailability} disabled={searchingRooms || !selectedRoomTypeId} className="bg-indigo-600 hover:bg-indigo-700">
+                            <Button onClick={searchAvailability} disabled={searchingRooms || !selectedRoomTypeId} className="">
                                 {searchingRooms ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                 Search Availability
                             </Button>
@@ -417,20 +430,28 @@ export default function NewBookingPage() {
                     <CardHeader><CardTitle className="flex items-center gap-2"><BedDouble className="w-5 h-5" />Select Room ({availableRooms.length} available)</CardTitle></CardHeader>
                     <CardContent>
                         {availableRooms.length === 0 ? (
-                            <div className="text-center py-12 text-slate-400">No rooms available for the selected dates</div>
+                            <div className="text-center py-12">
+                                <p className="text-slate-600 font-medium">No rooms available for the selected dates</p>
+                                <p className="text-sm text-slate-600 mt-1">Try different dates or select a different room type</p>
+                            </div>
                         ) : (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {availableRooms.map(room => {
                                     const rt = room.room_type as { code: string; name: string; base_price: number } | undefined
                                     const bld = room.building as { name: string } | undefined
                                     return (
-                                        <button key={room.id} onClick={() => { setSelectedRoom(room); if (rt && !rate) setRate(Number(rt.base_price)) }}
+                                        <button
+                                            key={room.id}
+                                            type="button"
+                                            onClick={() => { setSelectedRoom(room); if (rt && !rate) setRate(Number(rt.base_price)) }}
+                                            aria-label={`Room ${room.room_number}${rt ? `, ${rt.name}` : ''}${bld ? `, ${bld.name}` : ''}`}
+                                            aria-selected={selectedRoom?.id === room.id}
                                             className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md ${selectedRoom?.id === room.id ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-200'
                                                 }`}>
                                             <div className="font-bold text-lg text-slate-800">{room.room_number}</div>
-                                            <div className="text-xs text-slate-500 mt-1">{rt?.name}</div>
-                                            <div className="text-xs text-slate-400">{bld?.name}</div>
-                                            <div className="text-sm font-semibold text-indigo-600 mt-2">฿{rt ? Number(rt.base_price).toLocaleString() : '-'}/night</div>
+                                            <div className="text-xs text-slate-600 mt-1">{rt?.name}</div>
+                                            <div className="text-xs text-slate-600">{bld?.name}</div>
+                                            <div className="text-sm font-semibold text-primary mt-2">฿{rt ? Number(rt.base_price).toLocaleString() : '-'}/night</div>
                                         </button>
                                     )
                                 })}
@@ -440,7 +461,7 @@ export default function NewBookingPage() {
                             <Button variant="outline" onClick={() => setStep(0)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
                             <div className="flex gap-2">
                                 <Button variant="outline" onClick={() => { setSelectedRoom(null); setStep(2) }}>Skip (No Room)</Button>
-                                <Button onClick={() => setStep(2)} disabled={!selectedRoom} className="bg-indigo-600 hover:bg-indigo-700">
+                                <Button onClick={() => setStep(2)} disabled={!selectedRoom} className="">
                                     Next <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </div>
@@ -481,7 +502,7 @@ export default function NewBookingPage() {
                                             <button key={g.id} onClick={() => setSelectedGuest(g)}
                                                 className="w-full p-3 text-left rounded-lg border hover:border-indigo-300 hover:bg-indigo-50 transition-all">
                                                 <span className="font-medium">{g.first_name} {g.last_name}</span>
-                                                <span className="text-sm text-slate-400 ml-2">{g.email || g.phone}</span>
+                                                <span className="text-sm text-slate-600 ml-2">{g.email || g.phone}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -495,7 +516,7 @@ export default function NewBookingPage() {
                                             <div><Label>Phone</Label><Input value={newGuest.phone} onChange={(e) => setNewGuest({ ...newGuest, phone: e.target.value })} /></div>
                                             <div><Label>Email</Label><Input type="email" value={newGuest.email} onChange={(e) => setNewGuest({ ...newGuest, email: e.target.value })} /></div>
                                         </div>
-                                        <Button size="sm" onClick={handleCreateGuest} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700">
+                                        <Button size="sm" onClick={handleCreateGuest} disabled={loading} className="">
                                             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Create Guest
                                         </Button>
                                     </div>
@@ -571,7 +592,7 @@ export default function NewBookingPage() {
                                     <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
                                         <div>
                                             <p className="font-medium text-indigo-800">{selectedAllotment.allot_code}</p>
-                                            <p className="text-sm text-indigo-600">{selectedAllotment.company_name}</p>
+                                            <p className="text-sm text-primary">{selectedAllotment.company_name}</p>
                                             <p className="text-xs text-indigo-500">
                                                 Min {selectedAllotment.min_available} rooms available for selected dates
                                             </p>
@@ -615,7 +636,7 @@ export default function NewBookingPage() {
                         </div>
                         <div className="flex justify-between">
                             <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
-                            <Button onClick={() => setStep(3)} disabled={!selectedGuest} className="bg-indigo-600 hover:bg-indigo-700">
+                            <Button onClick={() => setStep(3)} disabled={!selectedGuest} className="">
                                 Review <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
                         </div>
@@ -630,19 +651,19 @@ export default function NewBookingPage() {
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-                                <p className="text-sm font-medium text-slate-500">Stay</p>
-                                <p className="text-slate-800">{checkIn && new Date(checkIn).toLocaleDateString('en-GB')} → {checkOut && new Date(checkOut).toLocaleDateString('en-GB')}</p>
-                                <p className="text-sm text-slate-500">{nights} night{nights > 1 ? 's' : ''} • {adults}A {children > 0 ? `${children}C` : ''}</p>
+                                <p className="text-sm font-medium text-slate-600">Stay</p>
+                                <p className="text-slate-800">{checkIn && formatDateShort(checkIn)} → {checkOut && formatDateShort(checkOut)}</p>
+                                <p className="text-sm text-slate-600">{nights} night{nights > 1 ? 's' : ''} • {adults}A {children > 0 ? `${children}C` : ''}</p>
                             </div>
                             <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-                                <p className="text-sm font-medium text-slate-500">Guest</p>
+                                <p className="text-sm font-medium text-slate-600">Guest</p>
                                 <p className="text-slate-800 font-medium">{selectedGuest?.first_name} {selectedGuest?.last_name}</p>
-                                <p className="text-sm text-slate-500">{selectedGuest?.email || selectedGuest?.phone || '-'}</p>
+                                <p className="text-sm text-slate-600">{selectedGuest?.email || selectedGuest?.phone || '-'}</p>
                             </div>
                             <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-                                <p className="text-sm font-medium text-slate-500">Room</p>
-                                <p className="text-slate-800">{selectedRoom?.room_number || <span className="italic text-slate-400">Unassigned</span>}</p>
-                                <p className="text-sm text-slate-500">{roomTypes.find(rt => rt.id === selectedRoomTypeId)?.name}</p>
+                                <p className="text-sm font-medium text-slate-600">Room</p>
+                                <p className="text-slate-800">{selectedRoom?.room_number || <span className="italic text-slate-500">Unassigned</span>}</p>
+                                <p className="text-sm text-slate-600">{roomTypes.find(rt => rt.id === selectedRoomTypeId)?.name}</p>
                             </div>
                             <div className="p-4 bg-indigo-50 rounded-lg space-y-2">
                                 <p className="text-sm font-medium text-indigo-500">Total Estimate</p>
@@ -661,13 +682,30 @@ export default function NewBookingPage() {
                         <div className="p-4 border-2 border-slate-200 rounded-lg space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <input type="checkbox" id="collectDeposit" checked={collectDeposit} onChange={(e) => {
-                                        setCollectDeposit(e.target.checked)
-                                        if (e.target.checked && depositAmount === 0) {
-                                            setDepositAmount(Math.round(rate * nights * 0.3)) // Default 30% deposit
-                                        }
-                                    }} className="rounded" />
+                                    <input
+                                        type="checkbox"
+                                        id="collectDeposit"
+                                        checked={collectDeposit}
+                                        onChange={(e) => {
+                                            setCollectDeposit(e.target.checked)
+                                            if (e.target.checked && depositAmount === 0) {
+                                                setDepositAmount(Math.round(rate * nights * 0.3))
+                                            }
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === ' ' || e.key === 'Enter') {
+                                                e.preventDefault()
+                                                setCollectDeposit(!collectDeposit)
+                                                if (!collectDeposit && depositAmount === 0) {
+                                                    setDepositAmount(Math.round(rate * nights * 0.3))
+                                                }
+                                            }
+                                        }}
+                                        className="rounded border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                                        aria-describedby="deposit-description"
+                                    />
                                     <Label htmlFor="collectDeposit" className="font-medium">Collect Deposit / Advance Payment</Label>
+                                    <span id="deposit-description" className="sr-only">When checked, a deposit payment will be collected during booking. Default deposit is 30% of the total stay.</span>
                                 </div>
                             </div>
                             
@@ -676,7 +714,7 @@ export default function NewBookingPage() {
                                     <div className="space-y-2">
                                         <Label>Deposit Amount</Label>
                                         <Input type="number" min={0} value={depositAmount} onChange={(e) => setDepositAmount(Number(e.target.value))} />
-                                        <p className="text-xs text-slate-400">Recommend: ฿{Math.round(rate * nights * 0.3).toLocaleString()} (30%)</p>
+                                        <p className="text-xs text-slate-600">Recommend: ฿{Math.round(rate * nights * 0.3).toLocaleString()} (30%)</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Payment Method</Label>
@@ -706,7 +744,7 @@ export default function NewBookingPage() {
                         
                         <div className="flex justify-between pt-4">
                             <Button variant="outline" onClick={() => setStep(2)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
-                            <Button onClick={handleSubmit} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 px-8">
+                            <Button onClick={handleSubmit} disabled={loading} className="bg-success hover:bg-success/90 text-success-foreground px-8">
                                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                                 Confirm Booking
                             </Button>
@@ -726,7 +764,7 @@ export default function NewBookingPage() {
                     </DialogHeader>
                     <div className="space-y-4">
                         {availableAllotments.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500">
+                            <div className="text-center py-8 text-slate-600">
                                 {checkingAllotment ? (
                                     <div className="flex items-center justify-center">
                                         <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
@@ -756,7 +794,7 @@ export default function NewBookingPage() {
                                                 <Badge variant={allot.min_available >= 3 ? 'default' : 'secondary'}>
                                                     {allot.min_available} rooms avail
                                                 </Badge>
-                                                <p className="text-xs text-slate-500 mt-1">
+                                                <p className="text-xs text-slate-600 mt-1">
                                                     {allot.total_days} nights
                                                 </p>
                                             </div>

@@ -99,37 +99,38 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// ─── Row color coding (KFO PAYF flag) ────────────────────────────────────────
+// ─── Row color coding (PAYF flag) ────────────────────────────────────────
+// Semantic palette per DESIGN.md: Red Clay (destructive), Emerald Moss (success), Amber Grain (warning)
 function getRowStyle(payf: string, isVoided: boolean) {
   if (isVoided || payf === "W")
-    return { bg: "bg-red-50 opacity-60", text: "text-red-400 line-through" };
-  if (payf === "P") return { bg: "bg-blue-50", text: "text-blue-700" };
-  if (payf === "C") return { bg: "bg-green-50", text: "text-green-700" };
+    return { bg: "bg-rose-50 opacity-60", text: "text-rose-400 line-through" };
+  if (payf === "P") return { bg: "bg-emerald-50", text: "text-emerald-700" };
+  if (payf === "C") return { bg: "bg-emerald-50", text: "text-emerald-700" };
   return { bg: "", text: "text-slate-800" };
 }
 
 function getPayfBadge(payf: string, isVoided: boolean) {
   if (isVoided || payf === "W")
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-600">
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-700">
         VOID
       </span>
     );
   if (payf === "P")
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-600">
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">
         PAID
       </span>
     );
   if (payf === "C")
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-600">
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">
         CORR
       </span>
     );
   if (payf === "A")
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-600">
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700">
         ADV
       </span>
     );
@@ -233,7 +234,7 @@ function buildFolioHtml(opts: {
 <html>
 <head>
   <meta charset="UTF-8"/>
-  <title>Folio — ${guestName}</title>
+  <title>Folio: ${guestName}</title>
   <style>
     body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0;padding:20px}
     h2{margin:0;font-size:18px}
@@ -249,7 +250,7 @@ function buildFolioHtml(opts: {
   <div style="display:flex;justify-content:space-between;margin-bottom:12px">
     <div>
       <h2>${hotelName}</h2>
-      <div style="font-size:13px;margin-top:4px"><strong>FOLIO ${folio.folio_seq}</strong>${folio.folio_number ? ` — #${folio.folio_number}` : ""}</div>
+      <div style="font-size:13px;margin-top:4px"><strong>FOLIO ${folio.folio_seq}</strong>${folio.folio_number ? `: #${folio.folio_number}` : ""}</div>
     </div>
     <div style="text-align:right;font-size:11px;color:#555">
       Printed: ${new Date().toLocaleString("th-TH")}
@@ -719,7 +720,7 @@ export default function CashierPage() {
     setHasTaxInvoice(true);
     await refreshFolios();
     
-    // Auto-print receipt after payment (KFO: PreviewAndWriteBill)
+    // Auto-print receipt after payment
     setTimeout(() => handlePrintFolio(), 500);
   };
 
@@ -1089,6 +1090,48 @@ export default function CashierPage() {
     if (billSetupOpen) loadFolioSetup();
   }, [taxInvOpen, billSetupOpen, loadFolioSetup, activeFolio]);
 
+  // ─── Keyboard shortcuts ──────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't fire when typing in inputs/dialogs
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      // Ctrl+Enter / Cmd+Enter: Receive Payment
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (activeFolio && !postOpen && !voidOpen && !payOpen && !advPayOpen) {
+          setPayOpen(true);
+        }
+      }
+      // Ctrl+P: Post Charge
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p' && !e.shiftKey) {
+        e.preventDefault();
+        if (activeFolio && !payOpen && !voidOpen && !postOpen && !advPayOpen) {
+          setPostOpen(true);
+        }
+      }
+      // Escape: close any open dialog
+      if (e.key === 'Escape') {
+        if (postOpen) setPostOpen(false);
+        else if (payOpen) setPayOpen(false);
+        else if (advPayOpen) setAdvPayOpen(false);
+        else if (voidOpen) setVoidOpen(false);
+        else if (crNoteOpen) setCrNoteOpen(false);
+        else if (corrOpen) setCorrOpen(false);
+        else if (splitOpen) setSplitOpen(false);
+        else if (transferOpen) setTransferOpen(false);
+        else if (billAddrOpen) setBillAddrOpen(false);
+        else if (billSetupOpen) setBillSetupOpen(false);
+        else if (checkoutOpen) setCheckoutOpen(false);
+        else if (remarkOpen) setRemarkOpen(false);
+        else if (selPayOpen) setSelPayOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeFolio, postOpen, payOpen, advPayOpen, voidOpen, crNoteOpen, corrOpen, splitOpen, transferOpen, billAddrOpen, billSetupOpen, checkoutOpen, remarkOpen, selPayOpen]);
+
   // ─── Total selection amount ─────────────────────────────────────────────
   const selectedTotal = (() => {
     if (!activeFolio) return 0;
@@ -1115,26 +1158,24 @@ export default function CashierPage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
             <input
               type="checkbox"
-              id="dueOut"
               checked={filterDueOut}
               onChange={(e) => setFilterDueOut(e.target.checked)}
-              className="rounded border-slate-300"
+              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
             />
-            <label htmlFor="dueOut" className="text-sm text-slate-600">Due Out Today</label>
-          </div>
-          <div className="flex items-center gap-2">
+            Due Out Today
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
             <input
               type="checkbox"
-              id="checkoutOnly"
               checked={filterCheckoutOnly}
               onChange={(e) => setFilterCheckoutOnly(e.target.checked)}
-              className="rounded border-slate-300"
+              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
             />
-            <label htmlFor="checkoutOnly" className="text-sm text-slate-600">Checkout Only</label>
-          </div>
+            Checkout Only
+          </label>
         </div>
       </header>
 
@@ -1161,16 +1202,20 @@ export default function CashierPage() {
                 <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
               </div>
             ) : folios.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-sm">
-                No open folios found
+              <div className="text-center py-12 px-4">
+                <p className="text-slate-400 text-sm">No open folios found</p>
+                <p className="text-slate-400 text-xs mt-1">Try adjusting your search or filters</p>
               </div>
             ) : (
               folios.map((f) => (
                 <div
                   key={f.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectReservation(f.reservation_id); } }}
                   onClick={() => selectReservation(f.reservation_id)}
-                  className={`p-4 border-b border-slate-100 cursor-pointer transition-colors ${
-                    selectedReservationId === f.reservation_id ? "bg-indigo-50 border-l-4 border-l-indigo-500" : "hover:bg-slate-50"
+                  className={`p-4 border-b border-slate-100 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
+                    selectedReservationId === f.reservation_id ? "bg-indigo-50 ring-1 ring-inset ring-indigo-200" : "hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -1180,7 +1225,7 @@ export default function CashierPage() {
                     </div>
                     {f.is_locked && <Lock className="w-4 h-4 text-amber-500" />}
                   </div>
-                  <div className="text-sm font-medium text-slate-700 mb-1">
+                  <div className="text-sm font-medium text-slate-700 mb-1 truncate" title={`${f.reservation?.guest?.first_name || ""} ${f.reservation?.guest?.last_name || ""}`}>
                     {f.reservation?.guest?.first_name} {f.reservation?.guest?.last_name}
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-500">
@@ -1240,9 +1285,11 @@ export default function CashierPage() {
                     <button
                       key={seq}
                       onClick={() => setActiveFolioSeq(seq as 1 | 2 | 3 | 4)}
+                      role="tab"
+                      aria-selected={activeFolioSeq === seq}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         activeFolioSeq === seq
-                          ? "bg-indigo-600 text-white shadow-lg"
+                          ? "bg-indigo-600 text-white shadow-md"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
@@ -1251,34 +1298,28 @@ export default function CashierPage() {
                         {folio?.is_locked && <Lock className="w-3 h-3" />}
                       </div>
                       {folio && (
-                        <div className={`text-xs mt-0.5 ${folio.balance > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                        <div className={`text-sm font-semibold mt-0.5 ${folio.balance > 0 ? "text-rose-300" : "text-emerald-300"}`}>
                           ฿{fmt(folio.balance)}
                         </div>
                       )}
                     </button>
                   );
                 })}
-              </div>
-
-              {/* ───── Lock/Unlock Button ──────────────────────────────────────── */}
-              <div className="mt-3">
+                <div className="w-px h-8 bg-slate-200 mx-1"></div>
                 <Button
                   size="sm"
-                  variant={activeFolio.is_locked ? "outline" : "outline"}
+                  variant="ghost"
                   onClick={() => handleLockToggle(activeFolio.id, activeFolio.is_locked)}
-                  className={activeFolio.is_locked ? "text-amber-600 border-amber-300" : "text-indigo-600 border-indigo-300"}
+                  className={activeFolio.is_locked ? "text-amber-600 hover:bg-amber-50" : "text-slate-500 hover:bg-slate-100"}
+                  title={activeFolio.is_locked ? "Unlock this folio for editing" : "Lock this folio to prevent changes"}
                 >
-                  {activeFolio.is_locked ? <LockOpen className="w-4 h-4 mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
-                  {activeFolio.is_locked ? "Unlock Folio" : "Lock Folio"}
+                  {activeFolio.is_locked ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                 </Button>
               </div>
             </div>
 
             {/* ───── Quick Action Buttons ──────────────────────────────────────── */}
             <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-2">
-              <Button size="sm" onClick={() => setPostOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
-                <Plus className="w-4 h-4 mr-2" /> Post Charge
-              </Button>
               <Button size="sm" onClick={async () => {
                 const hasRight = await checkRight(FUNCTION_CODES.PAYMENT, "can_view");
                 if (hasRight) {
@@ -1286,21 +1327,26 @@ export default function CashierPage() {
                 } else {
                   toast.error("You don't have permission to access Payment (KO39)");
                 }
-              }} className="bg-emerald-600 hover:bg-emerald-700">
+              }} className="bg-indigo-600 hover:bg-indigo-700" title="Receive Payment (Ctrl+Enter)">
                 <CreditCard className="w-4 h-4 mr-2" /> Receive Payment
+                <kbd className="ml-2 hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-500/30 text-indigo-200">⌘↵</kbd>
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setAdvPayOpen(true)}>
-                <DollarSign className="w-4 h-4 mr-2" /> Advance Payment
+              <Button size="sm" variant="outline" onClick={() => setPostOpen(true)} title="Post Charge (Ctrl+P)">
+                <Plus className="w-4 h-4 mr-2" /> Post Charge
+                <kbd className="ml-2 hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-200 text-slate-500">⌘P</kbd>
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setBillSetupOpen(true)}>
+              <Button size="sm" variant="ghost" onClick={() => setAdvPayOpen(true)}>
+                <DollarSign className="w-4 h-4 mr-2" /> Advance
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setBillSetupOpen(true)}>
                 <Settings2 className="w-4 h-4 mr-2" /> Bill Setup
               </Button>
               <div className="flex-1"></div>
-              {selectedItemIds.length > 0 && (
-                <Button size="sm" onClick={() => setSelPayOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-                  <CheckSquare className="w-4 h-4 mr-2" /> Pay Selected ({selectedItemIds.length})
+              <div className={selectedItemIds.length === 0 ? "invisible" : ""}>
+                <Button size="sm" onClick={() => setSelPayOpen(true)} variant="outline" className="border-indigo-300 text-indigo-600 hover:bg-indigo-50">
+                  <CheckSquare className="w-4 h-4 mr-2" /> Pay Selected ({selectedItemIds.length || 0})
                 </Button>
-              )}
+              </div>
             </div>
 
             {/* ───── Folio Items Table ─────────────────────────────────────────── */}
@@ -1341,7 +1387,7 @@ export default function CashierPage() {
                         onClick={() => setSelectedItemIds(prev =>
                           prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
                         )}
-                        className={`${style.bg} hover:bg-slate-100 transition-colors cursor-pointer`}
+                        className={`${style.bg} hover:bg-slate-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500`}
                       >
                         <td className="p-2 border-b border-slate-100">
                           <input
@@ -1352,12 +1398,12 @@ export default function CashierPage() {
                           />
                         </td>
                         <td className="p-2 border-b border-slate-100 text-slate-500 text-xs">{fmtDate(item.item_date)}</td>
-                        <td className="p-2 border-b border-slate-100 font-mono text-xs text-slate-600">{item.tran_code}</td>
-                        <td className="p-2 border-b border-slate-100">
+                        <td className="p-2 border-b border-slate-100 font-mono text-xs text-slate-600" title={item.tran_code_info?.description || undefined}>{item.tran_code}</td>
+                        <td className="p-2 border-b border-slate-100 max-w-[300px]">
                           <div className={style.text}>
-                            {item.description}
-                            {item.reference && <div className="text-xs text-slate-400">Ref: {item.reference}</div>}
-                            {item.remark && <div className="text-xs text-slate-400">Note: {item.remark}</div>}
+                            <span className="truncate block">{item.description}</span>
+                            {item.reference && <div className="text-xs text-slate-400 truncate">Ref: {item.reference}</div>}
+                            {item.remark && <div className="text-xs text-slate-400 truncate">Note: {item.remark}</div>}
                           </div>
                         </td>
                         <td className="p-2 border-b border-slate-100 text-right font-medium">{fmt(item.amount)}</td>
@@ -1426,11 +1472,11 @@ export default function CashierPage() {
                     <tr key={pay.id} className="bg-emerald-50">
                       <td className="p-2 border-b border-slate-100"></td>
                       <td className="p-2 border-b border-slate-100 text-slate-500 text-xs">{fmtDate(pay.created_at)}</td>
-                      <td className="p-2 border-b border-slate-100 font-mono text-xs text-emerald-600">{pay.tran_code || pay.payment_method}</td>
-                      <td className="p-2 border-b border-slate-100">
+                      <td className="p-2 border-b border-slate-100 font-mono text-xs text-emerald-600" title={pay.tran_code ? `Payment code: ${pay.tran_code}` : pay.payment_method}>{pay.tran_code || pay.payment_method}</td>
+                      <td className="p-2 border-b border-slate-100 max-w-[250px]">
                         <div className="text-emerald-700">PAYMENT</div>
-                        {pay.reference_number && <div className="text-xs text-slate-400">Ref: {pay.reference_number}</div>}
-                        {pay.notes && <div className="text-xs text-slate-400">{pay.notes}</div>}
+                        {pay.reference_number && <div className="text-xs text-slate-400 truncate">Ref: {pay.reference_number}</div>}
+                        {pay.notes && <div className="text-xs text-slate-400 truncate">{pay.notes}</div>}
                       </td>
                       <td className="p-2 border-b border-slate-100 text-right font-bold text-emerald-600">({fmt(pay.amount)})</td>
                       <td className="p-2 border-b border-slate-100"></td>
@@ -1484,9 +1530,10 @@ export default function CashierPage() {
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400">
-            <div className="text-center">
+            <div className="text-center max-w-sm">
               <Receipt className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-              <p className="text-lg">Select a folio to view details</p>
+              <p className="text-lg font-medium text-slate-500 mb-2">Select a folio to view details</p>
+              <p className="text-sm text-slate-400">Search for a guest by name, room number, or reservation number in the panel on the left to get started.</p>
             </div>
           </div>
         )}
@@ -1509,7 +1556,7 @@ export default function CashierPage() {
                 <SelectTrigger><SelectValue placeholder="Select code" /></SelectTrigger>
                 <SelectContent>
                   {tranCodes.map((tc) => (
-                    <SelectItem key={tc.code} value={tc.code}>{tc.code} — {tc.description}</SelectItem>
+                    <SelectItem key={tc.code} value={tc.code}>{tc.code}: {tc.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1582,7 +1629,7 @@ export default function CashierPage() {
                 <Button
                   type="button"
                   variant={paymentType === 'PA' ? 'default' : 'outline'}
-                  className={paymentType === 'PA' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  className={paymentType === 'PA' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                   onClick={() => {
                     setPaymentType('PA');
                     if (activeFolio) {
@@ -1595,12 +1642,11 @@ export default function CashierPage() {
                 <Button
                   type="button"
                   variant={paymentType === 'PT' ? 'default' : 'outline'}
-                  className={paymentType === 'PT' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                  className={paymentType === 'PT' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                   onClick={() => {
                     setPaymentType('PT');
                     setPartialPayAmount(0);
                     setPartialPayOpen(true);
-                    setPayOpen(false);
                   }}
                 >
                   Partial
@@ -1608,7 +1654,7 @@ export default function CashierPage() {
                 <Button
                   type="button"
                   variant={paymentType === 'PR' ? 'default' : 'outline'}
-                  className={paymentType === 'PR' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                  className={paymentType === 'PR' ? 'bg-red-600 hover:bg-red-700' : ''}
                   onClick={() => setPaymentType('PR')}
                 >
                   Refund
@@ -1639,7 +1685,7 @@ export default function CashierPage() {
                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                 <SelectContent>
                   {paymentCodes.map((pm) => (
-                    <SelectItem key={pm.code} value={pm.code}>{pm.code} — {pm.description}</SelectItem>
+                    <SelectItem key={pm.code} value={pm.code}>{pm.code}: {pm.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1682,7 +1728,7 @@ export default function CashierPage() {
               <Button 
                 onClick={handlePayment} 
                 disabled={payLoading || (paymentType === 'PA' && (activeFolio?.balance ?? 0) <= 0)} 
-                className={paymentType === 'PR' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+                className={paymentType === 'PR' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}
               >
                 {payLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {paymentType === 'PR' ? 'Process Refund' : 'Receive Payment'}
@@ -1739,7 +1785,7 @@ export default function CashierPage() {
                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                 <SelectContent>
                   {paymentCodes.map((pm) => (
-                    <SelectItem key={pm.code} value={pm.code}>{pm.code} — {pm.description}</SelectItem>
+                    <SelectItem key={pm.code} value={pm.code}>{pm.code}: {pm.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1787,7 +1833,7 @@ export default function CashierPage() {
                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                 <SelectContent>
                   {paymentCodes.map((pm) => (
-                    <SelectItem key={pm.code} value={pm.code}>{pm.code} — {pm.description}</SelectItem>
+                    <SelectItem key={pm.code} value={pm.code}>{pm.code}: {pm.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1878,7 +1924,7 @@ export default function CashierPage() {
                 <SelectTrigger className="w-64"><SelectValue placeholder="Select transaction code" /></SelectTrigger>
                 <SelectContent>
                   {tranCodes.map((tc) => (
-                    <SelectItem key={tc.code} value={tc.code}>{tc.code} — {tc.description}</SelectItem>
+                    <SelectItem key={tc.code} value={tc.code}>{tc.code}: {tc.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2005,7 +2051,7 @@ export default function CashierPage() {
                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                 <SelectContent>
                   {paymentCodes.map((pm) => (
-                    <SelectItem key={pm.code} value={pm.code}>{pm.code} — {pm.description}</SelectItem>
+                    <SelectItem key={pm.code} value={pm.code}>{pm.code}: {pm.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2216,7 +2262,7 @@ export default function CashierPage() {
                 </div>
                 <div className="flex justify-between mt-1">
                   <span>Remaining:</span>
-                  <span className={`font-bold ${splitTargetItem.amount - splitAmounts.reduce((sum, s) => sum + s.amount, 0) < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  <span className={`font-bold ${splitTargetItem.amount - splitAmounts.reduce((sum, s) => sum + s.amount, 0) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                     ฿{fmt(splitTargetItem.amount - splitAmounts.reduce((sum, s) => sum + s.amount, 0))}
                   </span>
                 </div>

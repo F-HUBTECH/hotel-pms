@@ -3,7 +3,7 @@
 /**
  * Hotel PMS - Enhanced Forecast Grid Component
  * Phase 7: Implement Features
- * Enhanced with FIT vs GRP breakdown and KFO parity
+ * Enhanced with FIT vs GRP breakdown and Hotel PMS parity
  */
 
 import React, { useState, useMemo, useRef, useCallback } from 'react'
@@ -55,29 +55,29 @@ export interface ForecastGridEnhancedProps {
   rowHeight?: number
 }
 
-// KFO Color parity - exact colors matching KFO
+// Semantic color palette per DESIGN.md: Emerald Moss (success), Amber Grain (warning), Red Clay (destructive), Deep Indigo (accent)
 const statusColors = {
-  available: 'bg-white border-2 border-green-300 text-green-900',
-  occupied_fit: 'bg-blue-100 border-2 border-blue-400 text-blue-900',
-  occupied_grp: 'bg-purple-100 border-2 border-purple-400 text-purple-900',
-  occupied_house: 'bg-orange-100 border-2 border-orange-400 text-orange-900',
-  oo: 'bg-gray-200 border-2 border-gray-400 text-gray-900',
-  oi: 'bg-gray-300 border-2 border-gray-500 text-gray-900',
-  hu: 'bg-orange-50 border-2 border-orange-300 text-orange-900',
+  available: 'bg-white border-2 border-emerald-300 text-emerald-800',
+  occupied_fit: 'bg-indigo-50 border-2 border-indigo-200 text-indigo-800',
+  occupied_grp: 'bg-indigo-100 border-2 border-indigo-300 text-indigo-900',
+  occupied_house: 'bg-amber-50 border-2 border-amber-200 text-amber-800',
+  oo: 'bg-rose-50 border-2 border-rose-200 text-rose-800',
+  oi: 'bg-rose-100 border-2 border-rose-300 text-rose-800',
+  hu: 'bg-amber-50 border-2 border-amber-200 text-amber-800',
 }
 
 const bookingStatusColors = {
-  B: 'bg-blue-600', // Booked
-  I: 'bg-indigo-600', // In House
-  C: 'bg-gray-400', // Cancelled
-  O: 'bg-green-600', // Checked Out
-  X: 'bg-red-500', // No Show
+  B: 'bg-indigo-500', // Booked
+  I: 'bg-indigo-700', // In House
+  C: 'bg-slate-400', // Cancelled
+  O: 'bg-emerald-500', // Checked Out
+  X: 'bg-rose-500', // No Show
 }
 
 const guestTypeBadges = {
-  FIT: 'bg-blue-500 text-white border-blue-600',
-  GRP: 'bg-purple-500 text-white border-purple-600',
-  HOUSE: 'bg-orange-500 text-white border-orange-600',
+  FIT: 'bg-indigo-500 text-white border-indigo-600',
+  GRP: 'bg-indigo-700 text-white border-indigo-800',
+  HOUSE: 'bg-amber-500 text-white border-amber-600',
 }
 
 export function ForecastGridEnhanced({
@@ -168,7 +168,7 @@ export function ForecastGridEnhanced({
     return labels[status] || status
   }
 
-  // Get cell status class (KFO parity)
+  // Get cell status class (Hotel PMS parity)
   const getCellStatusClass = (cell: ForecastRoomData) => {
     if (cell.is_override) {
       return 'bg-yellow-50 border-2 border-yellow-400'
@@ -380,7 +380,7 @@ export function ForecastGridEnhanced({
                           onDoubleClick={() => onCellDoubleClick?.(cell)}
                         >
                           <div className="h-full w-full flex flex-col items-center justify-center gap-0.5 p-1">
-                            {/* Booking status badge (KFO style - small colored dot) */}
+                            {/* Booking status badge (Hotel PMS style - small colored dot) */}
                             {cell.booking_status && cell.booking_status !== 'C' && (
                               <div
                                 className={cn(
@@ -391,7 +391,7 @@ export function ForecastGridEnhanced({
                               />
                             )}
 
-                            {/* Guest type badge (KFO style) */}
+                            {/* Guest type badge (Hotel PMS style) */}
                             {cell.guest_type && cell.guest_type !== 'HOUSE' && (
                               <Badge
                                 variant="outline"
@@ -404,14 +404,14 @@ export function ForecastGridEnhanced({
                               </Badge>
                             )}
 
-                            {/* Pax display (KFO style) */}
+                            {/* Pax display (Hotel PMS style) */}
                             {showPax && cell.total_pax && cell.total_pax > 0 && (
                               <div className="text-[10px] font-medium">
                                 {cell.total_pax}
                               </div>
                             )}
 
-                            {/* Revenue (KFO style) */}
+                            {/* Revenue (Hotel PMS style) */}
                             {showRevenue && cell.rate_amount !== null && cell.rate_amount > 0 && (
                               <div className="text-[10px] font-semibold">
                                 {cell.rate_amount.toLocaleString('th-TH')}

@@ -31,6 +31,8 @@ const reservationSchema = z.object({
 
 import { ReservationService } from '../services/reservation-service'
 import { RateRepository } from '../repositories/rate-repo'
+import { todayISO, currentTimeHHMM, nowISO, calculateNights } from '@/lib/utils/date'
+import { formatCurrency } from '@/lib/utils/format'
 
 // ===== Availability Check =====
 export async function checkAvailability(
@@ -39,47 +41,23 @@ export async function checkAvailability(
     const supabase = await createClient()
 
     try {
-        console.log('checkAvailability called:', { checkIn, checkOut, roomTypeId })
-
-        // First check ALL rooms in DB (no filters) to debug
-        const { data: allDbRooms, error: allError } = await supabase
-            .from('rooms')
-            .select('id, room_number, status, room_type_id')
-            .limit(50)
-        
-        console.log('ALL rooms in DB:', allDbRooms?.length || 0, 'Error:', allError?.message)
-        
-        // Check if room_type_id matches any rooms
-        const matchingRt = allDbRooms?.filter(r => r.room_type_id === roomTypeId)
-        console.log('Rooms with matching room_type_id:', matchingRt?.length || 0)
-        console.log('Matching rooms:', matchingRt?.map(r => ({ id: r.id, num: r.room_number, status: r.status })))
-        
-        // Check available/clean rooms
-        const availableClean = allDbRooms?.filter(r => r.status === 'available' || r.status === 'clean')
-        console.log('Rooms with status available/clean:', availableClean?.length || 0)
-        
-        // First get all rooms of the requested type that are available/clean
+        // Get all rooms of the requested type that are available/clean
         let roomsQuery = supabase
             .from('rooms')
             .select('*, building:buildings(id,name), room_type:room_types(id,code,name,base_price)')
             .in('status', ['available', 'clean'])
 
         if (roomTypeId) {
-            console.log('Filtering by room_type_id:', roomTypeId)
             roomsQuery = roomsQuery.eq('room_type_id', roomTypeId)
         }
 
         const { data: allRooms, error: roomsError } = await roomsQuery.order('room_number')
 
         if (roomsError) {
-            console.error('Error fetching rooms:', roomsError)
             return []
         }
 
-        console.log('Available/Clean rooms found:', allRooms?.length || 0)
-
         // Get booked room IDs for the date range
-        console.log('Checking for booked rooms between', checkIn, 'and', checkOut)
         const { data: bookedReservations, error: bookedError } = await supabase
             .from('reservations')
             .select('room_id')
@@ -89,11 +67,8 @@ export async function checkAvailability(
             .not('room_id', 'is', null)
 
         if (bookedError) {
-            console.error('Error fetching booked reservations:', bookedError)
             return allRooms || []
         }
-
-        console.log('Booked reservations found:', bookedReservations?.length || 0)
 
         const bookedRoomIds = new Set(
             (bookedReservations || [])
@@ -101,15 +76,11 @@ export async function checkAvailability(
                 .filter((id): id is string => !!id)
         )
 
-        console.log('Booked room IDs to exclude:', Array.from(bookedRoomIds))
-
         // Filter out booked rooms
         const availableRooms = (allRooms || []).filter(room => !bookedRoomIds.has(room.id))
 
-        console.log('Final available rooms after filtering:', availableRooms.length)
         return availableRooms as Room[]
-    } catch (err: any) {
-        console.error('checkAvailability exception:', err)
+    } catch {
         return []
     }
 }
@@ -134,7 +105,7 @@ export async function getReservations(
     }
     const from = (page - 1) * pageSize
     const { data, count, error } = await query.order('created_at', { ascending: false }).range(from, from + pageSize - 1)
-    if (error) { console.error(error); return { data: [], count: 0, page, pageSize } }
+    if (error) { return { data: [], count: 0, page, pageSize } }
     return { data: (data || []) as Reservation[], count: count || 0, page, pageSize }
 }
 
@@ -234,7 +205,7 @@ export async function checkIn(reservationId: string): Promise<ActionResponse> {
     }
 
     // Update reservation status with check-in time
-    const checkInTime = new Date().toTimeString().split(' ')[0].substring(0, 5)
+    const checkInTime = currentTimeHHMM()
     const { error: resError } = await supabase
         .from('reservations')
         .update({ 
@@ -253,9 +224,7 @@ export async function checkIn(reservationId: string): Promise<ActionResponse> {
     if (roomError) return { success: false, error: roomError.message }
 
     // Add room charge to folio
-    const nights = Math.max(1, Math.ceil(
-        (new Date(reservation.check_out_date).getTime() - new Date(reservation.check_in_date).getTime()) / (1000 * 60 * 60 * 24)
-    ))
+    const nights = calculateNights(reservation.check_in_date, reservation.check_out_date)
     const totalRoomCharge = Number(reservation.rate) * nights
 
     // Get ROOM transaction code
@@ -273,7 +242,7 @@ export async function checkIn(reservationId: string): Promise<ActionResponse> {
             amount: totalRoomCharge,
             quantity: nights,
             unit_price: reservation.rate,
-            item_date: new Date().toISOString().split('T')[0],
+            item_date: todayISO(),
             posted_by: user.id,
             payf: 'I',
         })
@@ -328,8 +297,8 @@ export async function checkOut(reservationId: string, forceCheckout = false): Pr
     }
 
     // Record check-out time and user
-    const checkOutTime = new Date().toTimeString().split(' ')[0].substring(0, 5)
-    const actualCheckOut = new Date().toISOString()
+    const checkOutTime = currentTimeHHMM()
+    const actualCheckOut = nowISO()
 
     // Update reservation
     const { error: resError } = await supabase
@@ -417,7 +386,7 @@ export async function cancelReservation(reservationId: string): Promise<ActionRe
 // ===== Today Stats =====
 export async function getTodayStats() {
     const supabase = await createClient()
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayISO()
 
     const [arrivals, departures, revenue] = await Promise.all([
         supabase.from('reservations').select('*', { count: 'exact', head: true })
