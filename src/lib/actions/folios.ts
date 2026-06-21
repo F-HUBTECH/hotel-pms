@@ -47,6 +47,7 @@ const receivePaymentSchema = z.object({
   approval_code: z.string().optional().default(""),
   payf: z.enum(['P', 'C']).optional().default('P'),
   payment_type: z.enum(['PA', 'PT', 'PR']).optional().default('PA'),
+  tax_inv_no: z.number().int().optional().default(0),
 });
 
 const billingAddressSchema = z.object({
@@ -85,7 +86,9 @@ const FOLIO_SELECT = `
     id, reservation_number, check_in_date, check_out_date, status, rate,
     guest:guests(id, first_name, last_name, email, phone),
     room:rooms(id, room_number)
-  )
+  ),
+  items:folio_items(*),
+  folio_payments!fk_folio_payments_folio(*)
 `;
 
 // ─────────────────────────────────────────────
@@ -442,6 +445,8 @@ export async function receiveFolioPayment(
     p_approval_code: parsed.data.approval_code ?? "",
     p_shift_code: "",
     p_user_id: userId,
+    p_tax_inv_no: parsed.data.tax_inv_no ?? 0,
+    p_payf: parsed.data.payf ?? 'P',
   });
 
   if (error) {
@@ -464,6 +469,8 @@ export async function receiveFolioPayment(
         shift_code: "",
         created_by: userId,
         is_voided: false,
+        tax_inv_no: parsed.data.tax_inv_no ?? 0,
+        payf: parsed.data.payf ?? 'P',
       })
       .select("id")
       .single();
@@ -881,7 +888,27 @@ export async function issueTaxInvoice(
   const supabase = await createClient();
   const userId = await getCurrentUserId();
 
-  // Get folio totals
+  // Try RPC first (stamps folio_items.tax_inv_no + folio_payments.tax_inv_no)
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "rpc_issue_tax_invoice",
+    { p_folio_id: folioId, p_user_id: userId },
+  );
+
+  if (!rpcError && rpcData) {
+    // Fetch the created tax invoice
+    const { data: invData, error: invError } = await supabase
+      .from("tax_invoices")
+      .select("*")
+      .eq("id", rpcData)
+      .single();
+
+    if (!invError && invData) {
+      revalidatePath("/dashboard/cashier");
+      return { success: true, data: invData as TaxInvoice };
+    }
+  }
+
+  // Fallback: manual insert (for when RPC not available)
   const { data: folio } = await supabase
     .from("folios")
     .select(
@@ -927,6 +954,22 @@ export async function issueTaxInvoice(
     .single();
 
   if (error) return { success: false, error: error.message };
+
+  // Stamp folio_items and folio_payments with invoice number
+  const invNo = (data as any).invoice_number;
+  await supabase
+    .from("folio_items")
+    .update({ tax_inv_no: invNo, payf: 'P' })
+    .eq("folio_id", folioId)
+    .eq("is_voided", false)
+    .neq("payf", 'W');
+
+  await supabase
+    .from("folio_payments")
+    .update({ tax_inv_no: invNo, payf: 'P' })
+    .eq("folio_id", folioId)
+    .eq("is_voided", false);
+
   revalidatePath("/dashboard/cashier");
   return { success: true, data: data as TaxInvoice };
 }

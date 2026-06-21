@@ -109,11 +109,17 @@ function getRowStyle(payf: string, isVoided: boolean) {
   return { bg: "", text: "text-slate-800" };
 }
 
-function getPayfBadge(payf: string, isVoided: boolean) {
+function getPayfBadge(payf: string, isVoided: boolean, taxInvNo?: number) {
   if (isVoided || payf === "W")
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-700">
         VOID
+      </span>
+    );
+  if (payf === "P" && taxInvNo && taxInvNo > 0)
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">
+        TAX INV
       </span>
     );
   if (payf === "P")
@@ -200,7 +206,7 @@ function buildFolioHtml(opts: {
         `<tr style="color:${i.is_voided ? "#aaa" : "#222"};text-decoration:${i.is_voided ? "line-through" : "none"}">
           <td style="padding:2px 6px">${fmtDate(i.item_date)}</td>
           <td style="padding:2px 6px;font-family:monospace">${i.tran_code ?? ""}</td>
-          <td style="padding:2px 6px">${i.description}${i.reference ? `<br/><small style="color:#888">Ref: ${i.reference}</small>` : ""}</td>
+          <td style="padding:2px 6px">${i.description}${i.tax_inv_no > 0 ? `<br/><small style="color:#4f46e5">INV#${i.tax_inv_no}</small>` : ""}${i.reference ? `<br/><small style="color:#888">Ref: ${i.reference}</small>` : ""}</td>
           <td style="padding:2px 6px;text-align:right">${fmt(i.amount)}</td>
           <td style="padding:2px 6px;text-align:right">${Number(i.vat_amount) > 0 ? fmt(i.vat_amount) : "-"}</td>
           <td style="padding:2px 6px;text-align:right">${Number(i.service_amount) > 0 ? fmt(i.service_amount) : "-"}</td>
@@ -215,7 +221,7 @@ function buildFolioHtml(opts: {
         `<tr style="color:#1d4ed8">
           <td style="padding:2px 6px">${fmtDate(p.created_at)}</td>
           <td style="padding:2px 6px;font-family:monospace">${p.tran_code ?? p.payment_method}</td>
-          <td style="padding:2px 6px">${p.reference_number ? `Ref: ${p.reference_number}` : ""}</td>
+          <td style="padding:2px 6px">${p.tax_inv_no > 0 ? `INV#${p.tax_inv_no}<br/>` : ""}${p.reference_number ? `Ref: ${p.reference_number}` : ""}</td>
           <td style="padding:2px 6px;text-align:right;font-weight:bold">(${fmt(p.amount)})</td>
           <td colspan="2"></td>
         </tr>`,
@@ -1402,6 +1408,7 @@ export default function CashierPage() {
                         <td className="p-2 border-b border-slate-100 max-w-[300px]">
                           <div className={style.text}>
                             <span className="truncate block">{item.description}</span>
+                            {item.tax_inv_no > 0 && <div className="text-xs text-indigo-500 font-mono">INV#{item.tax_inv_no}</div>}
                             {item.reference && <div className="text-xs text-slate-400 truncate">Ref: {item.reference}</div>}
                             {item.remark && <div className="text-xs text-slate-400 truncate">Note: {item.remark}</div>}
                           </div>
@@ -1410,7 +1417,7 @@ export default function CashierPage() {
                         <td className="p-2 border-b border-slate-100 text-right text-xs text-slate-500">{fmt(item.vat_amount)}</td>
                         <td className="p-2 border-b border-slate-100 text-right text-xs text-slate-500">{fmt(item.service_amount)}</td>
                         <td className="p-2 border-b border-slate-100 text-center">
-                          {getPayfBadge(item.payf, item.is_voided ?? false)}
+                          {getPayfBadge(item.payf, item.is_voided ?? false, item.tax_inv_no)}
                         </td>
                         <td className="p-2 border-b border-slate-100 text-center" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
@@ -1475,15 +1482,20 @@ export default function CashierPage() {
                       <td className="p-2 border-b border-slate-100 font-mono text-xs text-emerald-600" title={pay.tran_code ? `Payment code: ${pay.tran_code}` : pay.payment_method}>{pay.tran_code || pay.payment_method}</td>
                       <td className="p-2 border-b border-slate-100 max-w-[250px]">
                         <div className="text-emerald-700">PAYMENT</div>
+                        {pay.tax_inv_no > 0 && <div className="text-xs text-indigo-500 font-mono">INV#{pay.tax_inv_no}</div>}
                         {pay.reference_number && <div className="text-xs text-slate-400 truncate">Ref: {pay.reference_number}</div>}
                         {pay.notes && <div className="text-xs text-slate-400 truncate">{pay.notes}</div>}
                       </td>
                       <td className="p-2 border-b border-slate-100 text-right font-bold text-emerald-600">({fmt(pay.amount)})</td>
-                      <td className="p-2 border-b border-slate-100"></td>
-                      <td className="p-2 border-b border-slate-100"></td>
+                      <td className="p-2 border-b border-slate-100 text-right text-xs text-slate-500">
+                        {pay.payf === 'P' ? <span className="text-indigo-500 font-medium">INV</span> : '-'}
+                      </td>
+                      <td className="p-2 border-b border-slate-100 text-right text-xs text-slate-500">-</td>
                       <td className="p-2 border-b border-slate-100 text-center">
                         {pay.is_voided ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-600">VOID</span>
+                        ) : pay.payf === 'P' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-600">TAX INV</span>
                         ) : (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-600">PAID</span>
                         )}
@@ -1497,12 +1509,12 @@ export default function CashierPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem variant="destructive" onClick={async () => { 
+                              <DropdownMenuItem variant="destructive" onClick={async () => {
                                 const hasRight = await checkRight(FUNCTION_CODES.VOID, "can_view");
                                 if (hasRight) {
-                                  setVoidPayTarget(pay); 
-                                  setVoidPayReason(""); 
-                                  setVoidPayOpen(true); 
+                                  setVoidPayTarget(pay);
+                                  setVoidPayReason("");
+                                  setVoidPayOpen(true);
                                 } else {
                                   toast.error("You don't have permission to Void (KO40)");
                                 }
